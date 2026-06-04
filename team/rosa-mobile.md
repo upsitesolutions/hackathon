@@ -144,10 +144,10 @@ After the final step, show a "Your Recipe" screen. Fetch `GET /api/sessions/:id/
 
 ## Kickoff prompt
 
-> I'm building the mobile frontend for a hackathon app called Sous — a visual AI sous-chef. Stack: Expo / React Native, expo-router, TypeScript. App is in `app/`.
+>I'm building the mobile frontend for a hackathon app called Sous — a real-time visual AI sous-chef. The stack is Expo / React Native with expo-router and TypeScript. The app is in the `app/` directory.
 >
-> The bottom tabs are already set up as "Chat" and "Recipes". My job: recipe input screen (paste any recipe → AI enriches it), step-by-step viewer with expected visual states, checkpoint timer that prompts me when to take a photo, camera capture that POSTs to an API and gets a verdict, assessment result card, rescue screen, and personalized recipe screen at the end.
+>My job: recipe list screen, step-by-step viewer, checkpoint timer that prompts the user when it's time to take a photo, camera capture that POSTs to an API and gets back a verdict, assessment result card, rescue screen, and a personalized recipe screen shown at the end of a session.
 >
-> The API runs at `http://localhost:7071`. I'll use a hardcoded mock until it's ready.
+>Key product behavior: Sous is proactive — it can tell the user when to check their food based on a per-step timer (`checkpointMinutes`). The user doesn't have to tap "check it" on their own schedule; Sous prompts them.  Sous can also be reactive. If a user is concerned with their recipe progress, they can ask Sous. 
 >
-> Start with M1: `app/src/app/index.tsx` — recipe input screen with a text area, a "Let's Cook" button, and a loading state that says "Sous is researching your recipe…"
+>The API is not live yet. It will eventually run on `http://localhost:7071`. I should use mock data until it's ready. Start with Task M1: build `app/src/app/index.tsx` as a recipe list screen using a local MOCK_RECIPES constant.
