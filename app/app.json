@@ -34,6 +34,19 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera so Sous can assess your cooking progress.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "cooking-checkpoints"
+        }
       ]
     ],
     "experiments": {

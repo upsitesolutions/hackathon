@@ -1,16 +1,8 @@
-export interface RecipeStep {
-  stepId: string;
-  instruction: string;
-  expectedVisualState: string;
-  commonFailures: string[];
-  checkpointMinutes: number;
-}
+import type { EnrichedRecipe, EnrichedRecipeStep } from '@/constants/api';
 
-export interface Recipe {
-  id: string;
-  title: string;
-  steps: RecipeStep[];
-}
+export type RecipeStep = EnrichedRecipeStep;
+
+export type Recipe = EnrichedRecipe;
 
 export const MOCK_RECIPES: Recipe[] = [
   {
@@ -159,7 +151,7 @@ const recipeMatchers: Array<{ recipeId: Recipe['id']; keywords: string[] }> = [
   },
 ];
 
-export function enrichMockRecipeFromInput(source: string) {
+export function enrichMockRecipeFromInput(source: string): Recipe {
   const normalizedSource = source.trim().toLowerCase();
   const matchedRecipeId = recipeMatchers.find(({ keywords }) =>
     keywords.some((keyword) => normalizedSource.includes(keyword))
