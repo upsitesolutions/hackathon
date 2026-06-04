@@ -7,7 +7,9 @@ Build the Expo app: everything the user sees and touches.
 ```
 app/
 ```
-That's it. You never touch `server/`, `database/`, or anything outside `app/`.
+That's it. You never touch `functions/`, `database/`, or anything outside `app/`.
+
+**Note:** Akiva already updated the bottom tab labels to **Chat** and **Recipes** (`app/src/components/app-tabs.tsx`). Build your screens into that nav structure — Chat tab = recipe input + active cooking session, Recipes tab = past sessions / saved recipes.
 
 ## You do NOT need to know
 - How the Azure Functions backend works

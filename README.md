@@ -59,7 +59,7 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 ┌─────────────────┐     ┌──────────────────────┐     ┌──────────────────┐
 │  Expo / RN app  │ ──▶ │  Azure Functions v4  │ ──▶ │  Azure OpenAI    │
 │  (app/)         │     │  HTTP triggers       │     │  GPT-4o vision   │
-│  camera + UI    │ ◀── │  (server/src/        │ ◀── │                  │
+│  camera + UI    │ ◀── │  (functions/src/        │ ◀── │                  │
 └─────────────────┘     │   functions/)        │     └──────────────────┘
                         └──────────┬───────────┘
                                    │
@@ -74,9 +74,9 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 | Layer | Tech | Lives in |
 |-------|------|----------|
 | Mobile client | Expo / React Native, expo-router | `app/` |
-| API | Azure Functions v4 (Node.js) | `server/src/functions/` |
-| Vision + reasoning | Azure OpenAI (GPT-4o vision) | `server/src/lib/prompts/` |
-| Data | Azure Cosmos DB (NoSQL, serverless) | `database/` + `server/src/lib/db.js` |
+| API | Azure Functions v4 (Node.js) | `functions/src/functions/` |
+| Vision + reasoning | Azure OpenAI (GPT-4o vision) | `functions/src/lib/prompts/` |
+| Data | Azure Cosmos DB (NoSQL, serverless) | `database/` + `functions/src/lib/db.ts` |
 
 **Request flow:** app captures image + current step → HTTP trigger (`/assess`) → function loads step from Cosmos DB, builds vision prompt, calls GPT-4o → structured verdict (`on_track | adjust | done`) + advice returned → function writes session turn to Cosmos DB via output binding → app renders the guidance.
 
@@ -164,7 +164,7 @@ Builds the Expo app: recipe list, step viewer, camera capture, assessment card, 
 ---
 
 ### Person 2 — API / Orchestration
-**Owns:** `server/src/functions/` (Azure Functions HTTP triggers)
+**Owns:** `functions/src/functions/` (Azure Functions HTTP triggers)
 
 Writes the HTTP trigger functions: `/assess`, `/rescue`, `/recipes`. Wires the OpenAI client and Cosmos DB client together. Defines and enforces the API contract (request/response shapes). Runs `func start` locally for testing.
 
@@ -173,7 +173,7 @@ Writes the HTTP trigger functions: `/assess`, `/rescue`, `/recipes`. Wires the O
 ---
 
 ### Person 3 — AI / Prompt Engineering
-**Owns:** `server/src/lib/prompts/`
+**Owns:** `functions/src/lib/prompts/`
 
 Designs and iterates the vision prompt (`assess.js`), verdict schema validation (`verdict-schema.js`), and rescue prompt (`rescue.js`). Works entirely in isolation — can test prompts directly against Azure OpenAI without running the full server. Hands the finished prompt module to Person 2 to wire in.
 
@@ -182,7 +182,7 @@ Designs and iterates the vision prompt (`assess.js`), verdict schema validation 
 ---
 
 ### Person 4 — Data / Recipes
-**Owns:** `database/`, `server/src/lib/db.js`, Cosmos DB provisioning
+**Owns:** `database/`, `functions/src/lib/db.ts`, Cosmos DB provisioning
 
 Provisions the Cosmos DB account and containers. Writes the DB client wrapper. Seeds the three demo recipes (bread, steak, caramelized onions) with rich `expectedVisualState` and `commonFailures` per step — this is the content that makes the demo land. Hands the seeded container credentials and `db.js` to Person 2.
 
@@ -195,12 +195,12 @@ Provisions the Cosmos DB account and containers. Writes the DB client wrapper. S
 | File / directory | Owner | Nobody else touches |
 |-----------------|-------|-------------------|
 | `app/` | Person 1 | ✓ |
-| `server/src/functions/` | Person 2 | ✓ |
-| `server/src/lib/openai-client.js` | Person 2 | ✓ |
+| `functions/src/functions/` | Person 2 | ✓ |
+| `functions/src/lib/openai-client.js` | Person 2 | ✓ |
 | `server/package.json` + `package-lock.json` | Person 2 | ✓ (collect deps from 3 & 4 at start, install once) |
 | `server/.env.example` | Person 2 creates | Person 4 fills local `.env` only — never edits `.env.example` |
-| `server/src/lib/prompts/` | Person 3 | ✓ |
-| `server/src/lib/db.js` | Person 4 | ✓ |
+| `functions/src/lib/prompts/` | Person 3 | ✓ |
+| `functions/src/lib/db.ts` | Person 4 | ✓ |
 | `database/` | Person 4 | ✓ |
 | `docs/api-contract.md` | Person 2 writes day 1 | Everyone reads, nobody edits mid-session |
 

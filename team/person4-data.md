@@ -6,10 +6,10 @@ Provision the database, write the DB client, and prepare the test fixtures Perso
 ## You own
 ```
 database/              ← schema docs, seed scripts, test fixtures
-server/src/lib/db.js   ← Cosmos DB client wrapper
+functions/src/lib/db.ts   ← Cosmos DB client wrapper
 ```
 
-You never touch `app/`, `server/src/functions/`, `server/src/lib/prompts/`, `server/src/lib/openai-client.js`, or `server/package.json`.
+You never touch `app/`, `functions/src/functions/`, `functions/src/lib/prompts/`, `functions/src/lib/openai-client.ts`, or `functions/package.json`.
 
 ## You do NOT need to know
 - How the Expo app is built
@@ -25,7 +25,7 @@ You never touch `app/`, `server/src/functions/`, `server/src/lib/prompts/`, `ser
 | Deliverable | Goes to | When |
 |-------------|---------|-------|
 | Cosmos DB credentials (endpoint + key) | Person 2, for `.env` | Day 1, as soon as containers are provisioned |
-| `server/src/lib/db.js` | Person 2 | Mid-session |
+| `functions/src/lib/db.ts` | Person 2 | Mid-session |
 | Raw recipe text files (`database/fixtures/`) | Person 3 (as enrichment prompt test inputs) | Early — unblocks P0 |
 
 ---
@@ -112,7 +112,7 @@ Save connection string + key. Share with Person 2 immediately. Add `database/REA
 ---
 
 ### D2 — Cosmos DB client (db.js) (1.5h)
-**File:** `server/src/lib/db.js`
+**File:** `functions/src/lib/db.ts`
 
 Install `@azure/cosmos`. Export:
 - `getRecipes()` — all items from `recipes` container
@@ -214,8 +214,8 @@ Narrow the Cosmos DB index policy on `recipes` to `/id` and `/steps/*/stepId` �
 
 ## Kickoff prompt (paste this to your AI assistant to get started)
 
-> I'm the data / Cosmos DB person for a hackathon app called Sous — a visual AI sous-chef. My job is to provision an Azure Cosmos DB account, write a client module (`server/src/lib/db.js`), and seed 3 demo recipes with rich visual state descriptions per step.
+> I'm the data / Cosmos DB person for a hackathon app called Sous — a visual AI sous-chef. My job is to provision an Azure Cosmos DB account, write a client module (`functions/src/lib/db.ts`), and seed 3 demo recipes with rich visual state descriptions per step.
 >
 > The schema: each Recipe document has an embedded `steps[]` array. Each step has `stepId`, `instruction`, `expectedVisualState` (what the food should look like at this step), and `commonFailures[]` (what can go wrong visually). This content is what the AI uses to assess a photo.
 >
-> Start with Task D1: provision a Cosmos DB account (NoSQL API, serverless tier) in the Azure portal with two containers — `recipes` (partition key `/id`) and `sessions` (partition key `/sessionId`). Then move to D2 and write `server/src/lib/db.js`.
+> Start with Task D1: provision a Cosmos DB account (NoSQL API, serverless tier) in the Azure portal with two containers — `recipes` (partition key `/id`) and `sessions` (partition key `/sessionId`). Then move to D2 and write `functions/src/lib/db.ts`.

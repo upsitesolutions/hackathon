@@ -5,21 +5,21 @@ Build the Azure Functions backend that wires the mobile app, the vision model, a
 
 ## You own
 ```
-server/src/functions/          ← all HTTP trigger functions (yours alone)
-server/src/lib/openai-client.js  ← Azure OpenAI client (yours alone)
-server/host.json
-server/package.json            ← you manage this, see dependency note below
-server/.env.example            ← you create it; Person 4 adds Cosmos vars
+functions/src/functions/          ← all HTTP trigger functions (yours alone)
+functions/src/lib/openai-client.ts  ← Azure OpenAI client (yours alone)
+functions/host.json
+functions/package.json            ← you manage this, see dependency note below
+functions/local.settings.json            ← you create it; Person 4 adds Cosmos vars
 docs/api-contract.md           ← you write this on day 1
 ```
 
-`server/src/lib/prompts/` belongs to Person 3. `server/src/lib/db.js` belongs to Person 4. You `require()` both but never edit them.
+`functions/src/lib/prompts/` belongs to Person 3. `functions/src/lib/db.ts` belongs to Person 4. You `require()` both but never edit them.
 
 You never touch `app/` or `database/`.
 
 ## ⚠️ Dependency coordination (do this at the start)
 
-You own `server/package.json`. Before anyone writes code, collect the full dependency list from all three server-side people and install everything in one shot:
+You own `functions/package.json`. Before anyone writes code, collect the full dependency list from all three server-side people and install everything in one shot:
 
 ```bash
 # Person 2 needs:
@@ -38,9 +38,9 @@ Commit `package.json` and `package-lock.json` immediately. Nobody else touches t
 
 ## ⚠️ .env.example coordination
 
-You create `server/.env.example` in task A1. Leave a placeholder line for Cosmos DB vars:
+You create `functions/local.settings.json` in task A1. Leave a placeholder line for Cosmos DB vars:
 ```
-COSMOS_CONNECTION_STRING=   # filled in by Person 4
+"COSMOS_CONNECTION_STRING": ""
 ```
 Person 4 fills in the actual value in their local `.env` — they do not edit `.env.example`.
 
@@ -57,10 +57,10 @@ You are the integrator. Everyone else hands you a module; you wire them together
 
 | From | What | When |
 |------|------|-------|
-| Person 3 | `server/src/lib/prompts/assess.js` — exports `buildAssessPrompt(step)` | Mid-session |
-| Person 3 | `server/src/lib/prompts/rescue.js` — exports `buildRescuePrompt({step, problem})` | Mid-session |
-| Person 3 | `server/src/lib/prompts/verdict-schema.js` — exports `validateVerdict(raw)` | Mid-session |
-| Person 4 | `server/src/lib/db.js` — exports `getRecipes`, `getRecipe`, `getStep`, `upsertSession` | Mid-session |
+| Person 3 | `functions/src/lib/prompts/assess.ts` — exports `buildAssessPrompt(step)` | Mid-session |
+| Person 3 | `functions/src/lib/prompts/rescue.ts` — exports `buildRescuePrompt({step, problem})` | Mid-session |
+| Person 3 | `functions/src/lib/prompts/verdict-schema.ts` — exports `validateVerdict(raw)` | Mid-session |
+| Person 4 | `functions/src/lib/db.ts` — exports `getRecipes`, `getRecipe`, `getStep`, `upsertSession` | Mid-session |
 | Person 4 | Cosmos DB credentials for `.env` | Day 1 |
 
 Until those modules arrive, stub them with hardcoded returns so your functions still run.
@@ -87,16 +87,16 @@ GET  /api/recipes/{id}  → { "id", "title", "steps": [...] }
 ## Your tasks
 
 ### A1 — Project scaffold + OpenAI client (1h)
-**Files:** `server/src/lib/openai-client.js`, `server/.env.example`, `server/package.json`
+**Files:** `functions/src/lib/openai-client.ts`, `functions/local.settings.json`, `functions/package.json`
 
-Set up the Azure Functions v4 project under `server/src/`. Install `@azure/functions` and `openai`. Create `openai-client.js` — initialize with `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` from env. Verify `func start` boots cleanly.
+Set up the Azure Functions v4 project under `functions/src/`. Install `@azure/functions` and `openai`. Create `openai-client.ts` — initialize with `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` from env. Verify `func start` boots cleanly.
 
 ✅ Done when: `func start` runs without errors; a direct OpenAI ping succeeds.
 
 ---
 
 ### A2 — /assess HTTP trigger (2h)
-**File:** `server/src/functions/assess.js`
+**File:** `functions/src/functions/assess.ts`
 
 ```js
 app.http('assess', { methods: ['POST'], authLevel: 'anonymous', handler })
@@ -118,7 +118,7 @@ Stub db and prompt modules until Person 3 and 4 hand them over.
 ---
 
 ### A3 — /rescue HTTP trigger (1.5h)
-**File:** `server/src/functions/rescue.js`
+**File:** `functions/src/functions/rescue.ts`
 
 Accept `{ recipeId, stepId, problem }` — 400 if missing. Load step, call `buildRescuePrompt`, call GPT-4o (text only), return `{ advice: string }`.
 
@@ -127,7 +127,7 @@ Accept `{ recipeId, stepId, problem }` — 400 if missing. Load step, call `buil
 ---
 
 ### A4 — /recipes/enrich HTTP trigger (2h)
-**File:** `server/src/functions/enrich.js`
+**File:** `functions/src/functions/enrich.ts`
 
 **This is the first thing Person 1 calls — it's what makes any recipe work.**
 
@@ -147,7 +147,7 @@ Stub `buildEnrichPrompt` with a hardcoded recipe until Person 3 delivers.
 ---
 
 ### A4b — GET /sessions/:id/recipe (0.5h)
-**File:** `server/src/functions/sessions.js`
+**File:** `functions/src/functions/sessions.ts`
 
 `GET /api/sessions/{id}/recipe` → fetch session from Cosmos DB → return `session.personalizedRecipe`. Return 404 with `{ error: "recipe not yet generated" }` if null.
 
@@ -165,7 +165,7 @@ Every handler: try/catch, return `{ status: 400, jsonBody: { error: '...' } }` o
 ---
 
 ### A6 — CORS + deploy config (1h)
-**File:** `server/host.json`
+**File:** `functions/host.json`
 
 Add CORS so the Expo web preview can call the Functions host. Verify `func azure functionapp publish` deploys cleanly with env vars set as Application Settings. Document the deploy command.
 
@@ -196,4 +196,4 @@ Add CORS so the Expo web preview can call the Functions host. Verify `func azure
 >
 > The tech: Azure Functions v4 Node.js programming model (`@azure/functions`), Azure OpenAI GPT-4o vision, Azure Cosmos DB. I'll receive a prompt module from a teammate and a db module from another teammate — for now I'll stub them.
 >
-> Start with Task A1: set up the project scaffold under `server/src/`, install dependencies, create `server/src/lib/openai-client.js`, and verify `func start` boots without errors.
+> Start with Task A1: set up the project scaffold under `functions/src/`, install dependencies, create `functions/src/lib/openai-client.ts`, and verify `func start` boots without errors.

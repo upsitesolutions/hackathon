@@ -5,14 +5,14 @@ Design and calibrate the vision prompts that make Sous actually work — the cor
 
 ## You own
 ```
-server/src/lib/prompts/
+functions/src/lib/prompts/
   assess.js          ← vision prompt builder
   rescue.js          ← rescue prompt builder
   verdict-schema.js  ← verdict validation
 docs/prompt-notes.md ← calibration notes and test results
 ```
 
-You never touch `app/`, `server/src/functions/`, `server/src/lib/openai-client.js`, `server/src/lib/db.js`, `server/package.json`, or `database/`.
+You never touch `app/`, `functions/src/functions/`, `functions/src/lib/openai-client.ts`, `functions/src/lib/db.ts`, `functions/package.json`, or `database/`.
 
 ## You do NOT need to know
 - How the Expo app is built
@@ -27,9 +27,9 @@ You work entirely in isolation. You test prompts directly against the Azure Open
 
 | File | Exports | When |
 |------|---------|-------|
-| `server/src/lib/prompts/assess.js` | `buildAssessPrompt(step)` → messages array | Mid-session |
-| `server/src/lib/prompts/rescue.js` | `buildRescuePrompt({ step, problem })` → messages array | Mid-session |
-| `server/src/lib/prompts/verdict-schema.js` | `validateVerdict(rawString)` → verdict object or throws | As soon as P2 is done |
+| `functions/src/lib/prompts/assess.js` | `buildAssessPrompt(step)` → messages array | Mid-session |
+| `functions/src/lib/prompts/rescue.js` | `buildRescuePrompt({ step, problem })` → messages array | Mid-session |
+| `functions/src/lib/prompts/verdict-schema.js` | `validateVerdict(rawString)` → verdict object or throws | As soon as P2 is done |
 
 ---
 
@@ -52,7 +52,7 @@ Your prompt must instruct the model to return **only this JSON, no prose wrapper
 ## Your tasks
 
 ### P0 — Recipe enrichment prompt (2h) ⚠️ do this first — it unblocks everyone
-**File:** `server/src/lib/prompts/enrich.js`
+**File:** `functions/src/lib/prompts/enrich.js`
 
 **This is the most important prompt in the product.** Any recipe the user pastes in — a URL they scraped, a photo of a cookbook, a rough list of steps — gets passed through this prompt and comes out as a fully structured recipe Sous can work with.
 
@@ -91,7 +91,7 @@ Test against at least 3 very different recipe inputs:
 ---
 
 ### P1 — Assess prompt, first draft (1.5h)
-**File:** `server/src/lib/prompts/assess.js`
+**File:** `functions/src/lib/prompts/assess.js`
 
 Export `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` that returns a messages array for the OpenAI chat API (system + user with image). The prompt must:
 - Show the model the step's expected visual state and common failure modes
@@ -106,7 +106,7 @@ Test directly with the OpenAI SDK — no server needed.
 ---
 
 ### P2 — Verdict schema validation (1h)
-**File:** `server/src/lib/prompts/verdict-schema.js`
+**File:** `functions/src/lib/prompts/verdict-schema.js`
 
 Export `validateVerdict(raw)`. Parses the model output string. Throws a typed error if:
 - JSON is malformed
@@ -142,7 +142,7 @@ Key demo scenarios to nail:
 ---
 
 ### P4 — Rescue prompt (1.5h)
-**File:** `server/src/lib/prompts/rescue.js`
+**File:** `functions/src/lib/prompts/rescue.js`
 
 Export `buildRescuePrompt({ stepInstruction, expectedVisualState, problem })`. Frame the model as an experienced chef diagnosing a specific problem. Provide the step context so advice is specific. Request a concise 2-4 sentence recovery path.
 
@@ -181,7 +181,7 @@ Document baseline and optimized numbers in `docs/prompt-notes.md`.
 ---
 
 ### P7 — Personalized recipe generation prompt (2h)
-**File:** `server/src/lib/prompts/personalize.js`
+**File:** `functions/src/lib/prompts/personalize.js`
 
 At the end of a session, Sous generates a personalized recipe based on everything it observed. Export `buildPersonalizePrompt({ originalRecipe, turns, adjustments })` where:
 - `originalRecipe` — the base recipe with steps
@@ -216,8 +216,8 @@ Test against a simulated session with a mix of `on_track` and `adjust` turns. Th
 
 ## Kickoff prompt (paste this to your AI assistant to get started)
 
-> I'm doing prompt engineering for a hackathon app called Sous — a visual AI sous-chef. My job is to design the prompts that make it work. No app or server code involved — I work in `server/src/lib/prompts/` and test directly against Azure OpenAI.
+> I'm doing prompt engineering for a hackathon app called Sous — a visual AI sous-chef. My job is to design the prompts that make it work. No app or server code involved — I work in `functions/src/lib/prompts/` and test directly against Azure OpenAI.
 >
 > Core prompts: (1) vision assessment — given a step's expected visual state and a photo, return a structured verdict (on_track / adjust / done) + advice in strict JSON; (2) rescue — given a problem description and step context, return a specific recovery path; (3) personalized recipe generation — given the original recipe + a session's turn history (verdicts, actual timings, adjustments), rewrite the recipe customized to this cook's kitchen.
 >
-> Start with Task P1: create `server/src/lib/prompts/assess.js` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API.
+> Start with Task P1: create `functions/src/lib/prompts/assess.js` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API.
