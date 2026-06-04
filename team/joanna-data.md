@@ -133,6 +133,23 @@ getSession(sessionId: string): Promise<Session>
 
 Add 5s timeout and retry on 429 (Cosmos serverless rate-limits under burst).
 
+Local-first portability requirements:
+- Support either `COSMOS_CONNECTION_STRING` or (`COSMOS_ENDPOINT` + `COSMOS_KEY`) so local emulator and cloud both work.
+- Keep names configurable with defaults:
+  - DB: `sous-db`
+  - Containers: `recipes`, `sessions`
+- Add an init/bootstrap helper that ensures DB + containers exist locally before tests.
+
+Simple pre-prod smoke test:
+- Build functions: `cd functions && npm run build`
+- Run env preflight: `node ../database/tests/preflight/env-check.js`
+- Run DB smoke test: `node ../database/tests/db-smoke.js`
+- Pass criteria:
+  - recipe cache read/write works by id and contentHash
+  - step lookup works
+  - session create + append turn + append adjustment works
+  - personalized recipe save + readback works
+
 ✅ Done: test script reads from a seeded container without errors.
 
 ---
