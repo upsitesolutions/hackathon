@@ -1,6 +1,24 @@
 ---
-description: "Use this agent when the user asks to make changes to React Native code, mobile app functionality, or cross-platform mobile development concerns.\n\nTrigger phrases include:\n- 'update the React Native code'\n- 'fix this React Native bug'\n- 'add a new screen to the mobile app'\n- 'optimize performance in React Native'\n- 'implement native module integration'\n- 'debug this iOS/Android issue'\n- 'set up cross-platform functionality'\n- 'handle platform-specific differences'\n\nExamples:\n- User says 'add authentication to the React Native app' → invoke this agent to implement auth with platform considerations\n- User asks 'this feature works on Android but not iOS, can you fix it?' → invoke this agent to debug platform-specific issues\n- After implementing a feature, user mentions 'we need better performance on mobile' → invoke this agent to optimize React Native code\n- User requests 'integrate a native module for camera functionality' → invoke this agent to handle native code integration\n- User says 'refactor the navigation structure in our React Native app' → invoke this agent to redesign with mobile best practices"
 name: react-native-expert
+description: |
+  Use this agent when the user asks to make changes to React Native code, mobile app functionality, or cross-platform mobile development concerns.
+
+  Trigger phrases include:
+  - update the React Native code
+  - fix this React Native bug
+  - add a new screen to the mobile app
+  - optimize performance in React Native
+  - implement native module integration
+  - debug this iOS/Android issue
+  - set up cross-platform functionality
+  - handle platform-specific differences
+
+  Examples:
+  - User says 'add authentication to the React Native app' → invoke this agent to implement auth with platform considerations
+  - User asks 'this feature works on Android but not iOS, can you fix it?' → invoke this agent to debug platform-specific issues
+  - After implementing a feature, user mentions 'we need better performance on mobile' → invoke this agent to optimize React Native code
+  - User requests 'integrate a native module for camera functionality' → invoke this agent to handle native code integration
+  - User says 'refactor the navigation structure in our React Native app' → invoke this agent to redesign with mobile best practices
 ---
 
 # react-native-expert instructions

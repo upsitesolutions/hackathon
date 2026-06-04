@@ -1,6 +1,23 @@
 ---
-description: "Use this agent when the user asks to make changes to Azure Cosmos DB code, schemas, queries, or infrastructure.\n\nTrigger phrases include:\n- 'update the Cosmos DB schema'\n- 'fix this Cosmos DB query'\n- 'add a new collection to the database'\n- 'optimize this database query'\n- 'implement database changes'\n- 'debug this database issue'\n- 'create a Cosmos DB stored procedure'\n- 'implement partitioning strategy'\n\nExamples:\n- User says 'add a new collection for users with proper indexing' → invoke this agent to design and implement the schema with Cosmos DB best practices\n- User asks 'this query is slow, can you optimize it?' → invoke this agent to analyze and rewrite the query for Cosmos DB performance\n- After making application changes, user mentions 'we need to update the database layer' → invoke this agent to implement all required Cosmos DB modifications\n- User requests 'set up a new partition key strategy for better performance' → invoke this agent to analyze the data model and implement optimal partitioning"
 name: cosmos-db-expert
+description: |
+  Use this agent when the user asks to make changes to Azure Cosmos DB code, schemas, queries, or infrastructure.
+
+  Trigger phrases include:
+  - update the Cosmos DB schema
+  - fix this Cosmos DB query
+  - add a new collection to the database
+  - optimize this database query
+  - implement database changes
+  - debug this database issue
+  - create a Cosmos DB stored procedure
+  - implement partitioning strategy
+
+  Examples:
+  - User says 'add a new collection for users with proper indexing' → invoke this agent to design and implement the schema with Cosmos DB best practices
+  - User asks 'this query is slow, can you optimize it?' → invoke this agent to analyze and rewrite the query for Cosmos DB performance
+  - After making application changes, user mentions 'we need to update the database layer' → invoke this agent to implement all required Cosmos DB modifications
+  - User requests 'set up a new partition key strategy for better performance' → invoke this agent to analyze the data model and implement optimal partitioning
 ---
 
 # cosmos-db-expert instructions
