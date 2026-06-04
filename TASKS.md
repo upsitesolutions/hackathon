@@ -165,14 +165,34 @@ In each function handler, wrap the body in try/catch. On missing fields: `return
 
 ---
 
-### Task A6: CORS + deployment config
+### Task A6: Session persistence via Cosmos DB output binding
 **Owner:** API/Orchestration
-**Est:** 1h
-**Depends on:** A2, A3, A4
+**Est:** 1.5h
+**Depends on:** A2, D3 (Cosmos DB sessions container)
 
-Add CORS config to `server/host.json` so the Expo web preview can call the Functions host. Verify the Functions app can be deployed to Azure (`func azure functionapp publish`) with the env vars set as Application Settings. Document the deploy command in `server/README.md`.
+Azure Functions supports Cosmos DB **output bindings** that replace manual SDK writes. Configure the output binding in the v4 API via the `extraOutputs` option on `app.http`:
 
-**Done:** Functions deploy to Azure without errors; Expo app can reach the deployed endpoints.
+```js
+const { app, output } = require('@azure/functions');
+const cosmosOutput = output.cosmosDB({
+  databaseName: 'sous-db',
+  containerName: 'sessions',
+  connection: 'COSMOS_CONNECTION'
+});
+app.http('assess', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  extraOutputs: [cosmosOutput],
+  handler: async (request, context) => {
+    // ... after verdict ...
+    context.extraOutputs.set(cosmosOutput, { sessionId, recipeId, stepId, verdict, advice, timestamp });
+  }
+});
+```
+
+Write a session turn document `{ sessionId, recipeId, stepId, verdict, advice, timestamp }` using the binding. Use a hardcoded demo `sessionId` or generate one per app launch — no user auth for MVP.
+
+**Done:** After an assess call, a document appears in the sessions container in Cosmos DB portal.
 
 ---
 
@@ -377,8 +397,8 @@ Review the default Cosmos DB indexing policy for the `recipes` container — for
 5. Verdict + advice renders in the assessment card (M4).
 
 **Checklist:**
-- [ ] API server running on a known LAN IP (not `localhost`) so the physical phone can reach it
-- [ ] `api.ts` base URL updated to LAN IP
+- [ ] Run `func start` in `server/` to start the Azure Functions runtime (default port 7071, not 3000)
+- [ ] `api.ts` base URL updated to `http://<LAN IP>:7071` so the physical phone can reach it
 - [ ] Cosmos DB credentials in server `.env`
 - [ ] Azure OpenAI deployment name confirmed and in `.env`
 - [ ] At least one seeded recipe in Cosmos DB
