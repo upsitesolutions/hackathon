@@ -12,7 +12,7 @@ server/src/lib/prompts/
 docs/prompt-notes.md ← calibration notes and test results
 ```
 
-You never touch `app/`, `server/src/functions/`, or `database/`.
+You never touch `app/`, `server/src/functions/`, `server/src/lib/openai-client.js`, `server/src/lib/db.js`, `server/package.json`, or `database/`.
 
 ## You do NOT need to know
 - How the Expo app is built
@@ -198,6 +198,19 @@ Returns: `{ title, personalizedSteps[], notes }` — strict JSON.
 Test against a simulated session with a mix of `on_track` and `adjust` turns. The output should read like a recipe someone would actually save and reuse.
 
 ✅ Done when: function produces a clean personalized recipe JSON from a test session; timing adjustments and personal notes are present.
+
+---
+
+## GitHub Copilot tips for your stream
+
+**Use Copilot for:**
+- The JS scaffolding around prompts — function signatures, export statements, the messages array structure. Copilot will complete `{ role: 'system', content: ... }` patterns automatically.
+- `validateVerdict()` and its unit tests — this is pure parsing/type-checking logic. Write the JSDoc comment describing the shape and Copilot will write most of the function.
+- JSON schema validation boilerplate — if you use a validation library, Copilot will complete the schema definition.
+
+**Don't rely on Copilot for:**
+- The actual prompt text — Copilot does not know what bread dough looks like or what failure modes matter for a sear. Write the domain content yourself; use Copilot only for the surrounding JS structure.
+- Prompt calibration (P3) — that's iterative judgment work. Run it yourself against the Azure OpenAI playground or a test script.
 
 ---
 

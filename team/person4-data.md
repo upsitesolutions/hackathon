@@ -9,7 +9,7 @@ database/              ← schema docs, seed scripts, test fixtures
 server/src/lib/db.js   ← Cosmos DB client wrapper
 ```
 
-You never touch `app/`, `server/src/functions/`, or `server/src/lib/prompts/`.
+You never touch `app/`, `server/src/functions/`, `server/src/lib/prompts/`, `server/src/lib/openai-client.js`, or `server/package.json`.
 
 ## You do NOT need to know
 - How the Expo app is built
@@ -196,6 +196,19 @@ Produce `database/fixtures/onions-raw.txt` and `database/fixtures/onions-enriche
 Narrow the Cosmos DB index policy on `recipes` to `/id` and `/steps/*/stepId` — reduces RU consumption. In `db.js`, add exponential backoff on 429 responses (Cosmos serverless can rate-limit under burst). Verify a full read of a seeded recipe completes in <200ms.
 
 ✅ Done when: index policy updated, db.js has retry logic, queries are fast.
+
+---
+
+## GitHub Copilot tips for your stream
+
+**Use Copilot for:**
+- `@azure/cosmos` client setup and CRUD operations — Copilot knows this SDK well. Start with `const { CosmosClient } = require('@azure/cosmos')` and it'll complete the container/item patterns.
+- Retry logic for 429 responses — write `// retry with exponential backoff on 429` as a comment and Copilot will generate a reasonable implementation.
+- The `db.js` export functions — consistent, repetitive patterns that Copilot fills quickly once it sees the first one.
+
+**Don't rely on Copilot for:**
+- The `expectedVisualState` and `commonFailures` content in fixture files — this is cooking domain knowledge. Copilot will generate plausible-sounding but generic descriptions. Use Claude or ChatGPT and verify against real cooking references.
+- The content hash key design — think through what to hash (trimmed source text) before letting Copilot generate the hashing code.
 
 ---
 
