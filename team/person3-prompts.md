@@ -1,0 +1,150 @@
+# Person 3 — AI / Prompt Engineering
+
+## Your job in one sentence
+Design and calibrate the vision prompts that make Sous actually work — the core IP of the product.
+
+## You own
+```
+server/src/lib/prompts/
+  assess.js          ← vision prompt builder
+  rescue.js          ← rescue prompt builder
+  verdict-schema.js  ← verdict validation
+docs/prompt-notes.md ← calibration notes and test results
+```
+
+You never touch `app/`, `server/src/functions/`, or `database/`.
+
+## You do NOT need to know
+- How the Expo app is built
+- How Azure Functions routes work
+- How Cosmos DB is set up
+
+You work entirely in isolation. You test prompts directly against the Azure OpenAI API. When you're happy with them, you hand the module to Person 2 to wire in.
+
+---
+
+## What you hand off to Person 2
+
+| File | Exports | When |
+|------|---------|-------|
+| `server/src/lib/prompts/assess.js` | `buildAssessPrompt(step)` → messages array | Mid-session |
+| `server/src/lib/prompts/rescue.js` | `buildRescuePrompt({ step, problem })` → messages array | Mid-session |
+| `server/src/lib/prompts/verdict-schema.js` | `validateVerdict(rawString)` → verdict object or throws | As soon as P2 is done |
+
+---
+
+## The verdict schema (agree on this at the start)
+
+Every assess call must return exactly this shape:
+
+```json
+{
+  "verdict": "on_track" | "adjust" | "done",
+  "advice": "plain-language corrective action or confirmation",
+  "confidence": 0.0–1.0
+}
+```
+
+Your prompt must instruct the model to return **only this JSON, no prose wrapper**.
+
+---
+
+## Your tasks
+
+### P1 — Assess prompt, first draft (1.5h)
+**File:** `server/src/lib/prompts/assess.js`
+
+Export `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` that returns a messages array for the OpenAI chat API (system + user with image). The prompt must:
+- Show the model the step's expected visual state and common failure modes
+- Ask it to respond in strict JSON matching the verdict schema
+- Request specific, actionable advice — not generic cooking tips
+- Include "respond in JSON only, no prose" instruction
+
+Test directly with the OpenAI SDK — no server needed.
+
+✅ Done when: function returns parseable verdict JSON with correct schema on a test call.
+
+---
+
+### P2 — Verdict schema validation (1h)
+**File:** `server/src/lib/prompts/verdict-schema.js`
+
+Export `validateVerdict(raw)`. Parses the model output string. Throws a typed error if:
+- JSON is malformed
+- `verdict` is not one of `on_track | adjust | done`
+- `advice` is missing or empty string
+
+Person 2's /assess function calls this before returning to the client. If validation fails, the route retries once with a stricter instruction.
+
+✅ Done when: unit tests pass for valid input, invalid verdict value, missing advice, and malformed JSON.
+
+---
+
+### P3 — Calibrate on demo recipes (2h)
+**Depends on:** P1, recipe content from Person 4
+
+Run the assess prompt manually against real or staged photos for each demo recipe step. For each step, test three scenarios:
+- **Correct state** → should return `on_track`
+- **Wrong state** (e.g. wet dough, pale steak) → should return `adjust` with specific advice
+- **Done state** → should return `done`
+
+Iterate on the prompt until verdicts are reliable. Document results in `docs/prompt-notes.md`.
+
+Key demo scenarios to nail:
+| Recipe | Wrong photo | Expected advice |
+|--------|-------------|-----------------|
+| Bread / Knead | Shaggy, tearing dough | "Still tearing — 3 more minutes, add flour" |
+| Bread / Proof | Flat, no rise | "Under-proofed — check yeast, give it more time" |
+| Steak / Sear | Pale grey bottom | "Pan too cold — pull steak, get pan smoking first" |
+| Onions | Black edges | "Burned — lower heat, add splash of water" |
+
+✅ Done when: 2+ recipes × 3 scenarios return correct verdicts consistently.
+
+---
+
+### P4 — Rescue prompt (1.5h)
+**File:** `server/src/lib/prompts/rescue.js`
+
+Export `buildRescuePrompt({ stepInstruction, expectedVisualState, problem })`. Frame the model as an experienced chef diagnosing a specific problem. Provide the step context so advice is specific. Request a concise 2-4 sentence recovery path.
+
+Test against: seized caramel, over-salted dish, bread that won't come together, overcooked steak.
+
+✅ Done when: 4 test cases return specific, actionable recovery paths (not generic tips).
+
+---
+
+### P5 — Edge case hardening (1.5h)
+**Depends on:** P1, P3
+
+Stress-test the assess prompt:
+- **Off-topic image** (a cat, a blank wall) → should gracefully say "can't assess this", not hallucinate a verdict
+- **Blurry / dark image** → should note uncertainty, not confidently mislead
+- **Step with no visual cue** (e.g. "season to taste") → shouldn't crash or hallucinate
+
+Add a fallback rule: if `confidence < 0.4`, override to `adjust` with "Image isn't clear enough — try again with better lighting."
+
+✅ Done when: all three edge cases return sensible non-hallucinated responses.
+
+---
+
+### P6 — Token and latency audit (1h)
+**Depends on:** P3, P5
+
+Measure: end-to-end latency for a typical assess call, and typical token counts. Target: ≤5s round-trip, ≤1500 tokens/call. If over:
+- Truncate `commonFailures[]` to top 3
+- Compress image to 768px before sending
+- Add `max_tokens` cap on response
+
+Document baseline and optimized numbers in `docs/prompt-notes.md`.
+
+✅ Done when: assess round-trip is ≤5s on the demo device.
+
+---
+
+## Kickoff prompt (paste this to your AI assistant to get started)
+
+> I'm doing prompt engineering for a hackathon app called Sous — a visual AI sous-chef. My job is to design the prompts that make it work. No app or server code involved — I work in `server/src/lib/prompts/` and test directly against Azure OpenAI.
+>
+> The core task: given a cooking step's expected visual state and a photo of what the cook actually has, the model should return a structured verdict — `on_track`, `adjust`, or `done` — plus specific, actionable advice. The response must be strict JSON: `{ "verdict": "...", "advice": "...", "confidence": 0.0–1.0 }`.
+>
+> Start with Task P1: create `server/src/lib/prompts/assess.js` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API. Test it with a hardcoded call.

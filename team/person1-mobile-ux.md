@@ -1,0 +1,110 @@
+# Person 1 — Mobile / UX
+
+## Your job in one sentence
+Build the Expo app: everything the user sees and touches.
+
+## You own
+```
+app/
+```
+That's it. You never touch `server/`, `database/`, or anything outside `app/`.
+
+## You do NOT need to know
+- How the Azure Functions backend works
+- How Cosmos DB is set up
+- How the vision prompt is engineered
+
+You call one API endpoint. That's your only external dependency.
+
+---
+
+## Your API contract (the one thing to agree on at the start)
+
+```
+POST http://localhost:7071/api/assess
+Body:    { "recipeId": "...", "stepId": "...", "imageBase64": "..." }
+Returns: { "verdict": "on_track" | "adjust" | "done", "advice": "...", "confidence": 0.0–1.0 }
+
+POST http://localhost:7071/api/rescue
+Body:    { "recipeId": "...", "stepId": "...", "problem": "..." }
+Returns: { "advice": "..." }
+
+GET  http://localhost:7071/api/recipes
+Returns: [{ "id": "...", "title": "...", "description": "..." }]
+
+GET  http://localhost:7071/api/recipes/:id
+Returns: { "id", "title", "steps": [{ "stepId", "instruction", "expectedVisualState", "commonFailures" }] }
+```
+
+Store the base URL in `app/src/constants/api.ts` as `API_BASE_URL`. **Use mock data for everything until the real server is ready** — don't block on Person 2.
+
+---
+
+## Your tasks
+
+### M1 — Recipe list screen (1.5h)
+**File:** `app/src/app/index.tsx`
+
+Replace the Expo boilerplate. Render a `FlatList` of recipe cards (title, short description). Tapping navigates to the step viewer. Start with a local `MOCK_RECIPES` constant; swap to a real fetch once the server is up.
+
+✅ Done when: app launches, shows 2+ recipes, tap navigates forward.
+
+---
+
+### M2 — Step viewer screen (2h)
+**File:** `app/src/app/recipe/[id].tsx`
+
+Dynamic expo-router route. Show: step number, instruction text, and — prominently — the `expectedVisualState` ("what to look for"). Prev/Next navigation. "Check it" button at the bottom that will invoke the camera (M3).
+
+✅ Done when: you can page through all steps; expected visual state is visible per step.
+
+---
+
+### M3 — Camera capture (2h)
+**File:** `app/src/components/camera-capture.tsx`
+
+Install `expo-camera`. Modal-style camera view. On capture: resize to ≤1024px with `expo-image-manipulator`, encode as base64, POST to `/api/assess`. Show a spinner while waiting. On response, dismiss camera and pass the verdict to the result card (M4).
+
+✅ Done when: tapping "Check it" opens the camera, captures, and returns a verdict object.
+
+---
+
+### M4 — Assessment result card (1.5h)
+**File:** `app/src/components/assessment-card.tsx`
+
+Receives a verdict object and renders:
+- Status badge: 🟢 "On Track" / 🟡 "Adjust" / 🔵 "Done — pull it now"
+- `advice` text in large, readable font
+- "Continue" button to dismiss
+
+Make it visually distinct — full overlay or bottom sheet. It needs to be readable with flour-covered hands in a kitchen.
+
+✅ Done when: all three verdict states render correctly with hardcoded mock data.
+
+---
+
+### M5 — Wire the full assess flow (1h)
+**File:** `app/src/app/recipe/[id].tsx` (update), `app/src/constants/api.ts`
+
+Connect: "Check it" → CameraCapture → POST /assess → AssessmentCard. Loading state, basic error state ("Could not reach server — try again"). Point `API_BASE_URL` at `http://localhost:7071`.
+
+✅ Done when: full flow works end-to-end in the simulator against the local server.
+
+---
+
+### M6 — Rescue screen (1.5h)
+**File:** `app/src/app/rescue.tsx`
+
+"Help, something went wrong" button in the step viewer. Opens a screen with a multi-line text input and Submit. POST to `/api/rescue`. Display the returned advice using the AssessmentCard layout.
+
+✅ Done when: user types a problem, submits, sees a recovery path.
+
+---
+
+## Kickoff prompt (paste this to your AI assistant to get started)
+
+> I'm building the mobile frontend for a hackathon app called Sous — a real-time visual AI sous-chef. The stack is Expo / React Native with expo-router and TypeScript. The app is in the `app/` directory.
+>
+> My job is to build: a recipe list screen, a step-by-step viewer that shows what the food should look like at each step, a camera capture component that sends a photo to an API and gets back a verdict (on_track / adjust / done), an assessment result card that displays the verdict and advice, and a rescue screen for when something goes wrong.
+>
+> The API runs at `http://localhost:7071`. I should use mock data until it's ready. Start with Task M1: build `app/src/app/index.tsx` as a recipe list screen using a local MOCK_RECIPES constant.
