@@ -150,4 +150,4 @@ After the final step, show a "Your Recipe" screen. Fetch `GET /api/sessions/:id/
 >
 >Key product behavior: Sous is proactive — it can tell the user when to check their food based on a per-step timer (`checkpointMinutes`). The user doesn't have to tap "check it" on their own schedule; Sous prompts them.  Sous can also be reactive. If a user is concerned with their recipe progress, they can ask Sous. 
 >
->The API runs at `http://localhost:7071`. I should use mock data until it's ready. Start with Task M1: build `app/src/app/index.tsx` as a recipe list screen using a local MOCK_RECIPES constant.
+>The API is not live yet. It will eventually run on `http://localhost:7071`. I should use mock data until it's ready. Start with Task M1: build `app/src/app/index.tsx` as a recipe list screen using a local MOCK_RECIPES constant.
