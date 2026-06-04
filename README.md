@@ -152,57 +152,27 @@ Multimodal models can finally judge *physical state from an image* well enough t
 
 ## Team Structure
 
-Four streams with hard ownership boundaries — no one needs to read another stream's code to make progress. The only shared contract is the API shape agreed up front (see TASKS.md).
+| Person | Role | Brief |
+|--------|------|-------|
+| **Rosa** | Mobile / UX | [team/rosa-mobile.md](team/rosa-mobile.md) |
+| **Akiva** | Backend + Prompts | [team/akiva-backend-prompts.md](team/akiva-backend-prompts.md) |
+| **Joanna** | Data / Cosmos DB | [team/joanna-data.md](team/joanna-data.md) |
+| **Matt** | QA + Demo | [team/matt-qa-demo.md](team/matt-qa-demo.md) |
 
-### Person 1 — Mobile / UX
-**Owns:** everything in `app/`
+### File ownership — zero overlap
 
-Builds the Expo app: recipe list, step viewer, camera capture, assessment card, rescue screen. Works against a mock API response until the server is ready, then swaps one constant (`API_BASE_URL` in `app/src/constants/api.ts`) to point at the real server.
-
-**Never touches:** `functions/src/lib/prompts/`, `functions/src/lib/db.ts`, `database/`, `app/`
-
----
-
-### Person 2 — API / Orchestration
-**Owns:** `functions/src/functions/` (Azure Functions HTTP triggers)
-
-Writes the HTTP trigger functions: `/assess`, `/rescue`, `/recipes`. Wires the OpenAI client and Cosmos DB client together. Defines and enforces the API contract (request/response shapes). Runs `func start` locally for testing.
-
-**Never touches:** `app/`, prompt internals, Cosmos DB provisioning
-
----
-
-### Person 3 — AI / Prompt Engineering
-**Owns:** `functions/src/lib/prompts/`
-
-Designs and iterates the vision prompt (`assess.js`), verdict schema validation (`verdict-schema.js`), and rescue prompt (`rescue.js`). Works entirely in isolation — can test prompts directly against Azure OpenAI without running the full server. Hands the finished prompt module to Person 2 to wire in.
-
-**Never touches:** `app/`, routes, Cosmos DB
-
----
-
-### Person 4 — Data / Recipes
-**Owns:** `database/`, `functions/src/lib/db.ts`, Cosmos DB provisioning
-
-Provisions the Cosmos DB account and containers. Writes the DB client wrapper. Seeds the three demo recipes (bread, steak, caramelized onions) with rich `expectedVisualState` and `commonFailures` per step — this is the content that makes the demo land. Hands the seeded container credentials and `db.js` to Person 2.
-
-**Never touches:** `app/`, prompt files, Azure Functions handlers
-
----
-
-### File ownership map — zero overlap
-
-| File / directory | Owner | Nobody else touches |
-|-----------------|-------|-------------------|
-| `app/` | Person 1 | ✓ |
-| `functions/src/functions/` | Person 2 | ✓ |
-| `functions/src/lib/openai-client.ts` | Person 2 | ✓ |
-| `functions/package.json` + `package-lock.json` | Person 2 | ✓ (collect deps from 3 & 4 at start, install once) |
-| `functions/local.settings.json` | Person 2 creates | Person 4 fills local `.env` only — never edits `.env.example` |
-| `functions/src/lib/prompts/` | Person 3 | ✓ |
-| `functions/src/lib/db.ts` | Person 4 | ✓ |
-| `database/` | Person 4 | ✓ |
-| `docs/api-contract.md` | Person 2 writes day 1 | Everyone reads, nobody edits mid-session |
+| File / directory | Owner | Everyone else |
+|-----------------|-------|---------------|
+| `app/` | Rosa | never touch |
+| `functions/src/functions/` | Akiva | never touch |
+| `functions/src/lib/openai-client.ts` | Akiva | never touch |
+| `functions/src/lib/prompts/` | Akiva | never touch |
+| `functions/package.json` + `package-lock.json` | Akiva | never touch — tell Akiva your deps at the start |
+| `functions/local.settings.json` | each person keeps their own | gitignored — never commit |
+| `functions/src/lib/db.ts` | Joanna | never touch |
+| `database/` | Joanna | never touch |
+| `docs/api-contract.md` | Akiva writes day 1 | read-only once agreed |
+| `database/fixtures/photos/` | Matt | sources demo photos |
 
 ### The one interface to agree on before anyone writes code
 
