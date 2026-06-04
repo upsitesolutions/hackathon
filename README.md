@@ -28,20 +28,22 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 
 ## How It Works
 
-1. **Pick a recipe.** Sous breaks it into steps, each with a timer and an *expected visual state*.
-2. **Sous runs the clock.** At each checkpoint, Sous prompts you: *"Time to check your dough — snap a photo."* You don't have to remember to check in; Sous tells you when.
-3. **Snap a photo.** Point your camera at what you're cooking. Sous assesses the real state vs. the intended state — consistency, color, browning, sear, reduction, size.
-4. **Sous advises.** It confirms you're on track, or gives a concrete corrective action: lower the heat, add liquid, keep going, you're done — pull it now.
-5. **Rescue mode.** Stuck? "My caramel seized," "the dough won't come together" → describe the problem, Sous diagnoses and gives a recovery path.
-6. **Your personalized recipe.** At the end of the session, Sous generates a recipe customized to *your* kitchen — adjusted for how your dough behaved, how long your oven actually took, what worked and what didn't. Next time you make it, start from your version, not the generic one.
+1. **Paste in any recipe.** A URL, a block of text, a photo of a cookbook page — whatever you have. Sous reads it and does the research: what should each step *look* like, what are the common failure modes, when should it check in with you?
+2. **Sous enriches it.** In seconds, your raw recipe becomes a structured guide — each step annotated with the visual cue a chef would watch for, the timing, and what can go wrong.
+3. **Sous runs the clock.** Once you start cooking, Sous prompts you at each checkpoint: *"Time to check your dough — snap a photo."* You don't have to remember to check in; Sous tells you when.
+4. **Snap a photo.** Point your camera at what you're cooking. Sous assesses the real state vs. the intended state — consistency, color, browning, sear, reduction, size.
+5. **Sous advises.** It confirms you're on track, or gives a concrete corrective action: lower the heat, add liquid, keep going, you're done — pull it now.
+6. **Rescue mode.** Stuck? "My caramel seized," "the dough won't come together" → describe the problem, Sous diagnoses and gives a recovery path.
+7. **Your personalized recipe.** At the end, Sous generates a recipe customized to *your* kitchen — adjusted for how your dough behaved, how long your oven actually took, what worked and what didn't. Next time you make it, start from your version.
 
 ## Core Features
 
 ### MVP (hackathon demo)
-- ⏱️ **Timer-driven checkpoints** — Sous prompts you when it's time to check, based on the step's expected duration. You don't have to remember.
-- 📷 **Visual state check** — snap a photo at a checkpoint; vision model evaluates it against the step's target state.
-- 🧭 **Adaptive guidance** — plain-language "adjust / continue / you're done" verdict with a specific corrective action.
-- 📋 **Recipe scaffolding** — steps annotated with the visual cue a chef would watch for and a suggested check time.
+- 📥 **Any recipe in** — paste text, a URL, or a photo. Sous parses and enriches it automatically.
+- 🔬 **Recipe research** — for each step, Sous derives the expected visual state, common failure modes, and checkpoint timing. No manual data entry.
+- ⏱️ **Timer-driven checkpoints** — Sous prompts you when it's time to check. You don't have to remember.
+- 📷 **Visual state check** — snap a photo; vision model evaluates it against the enriched step data.
+- 🧭 **Adaptive guidance** — plain-language verdict (adjust / on track / done) with a specific corrective action.
 - 🆘 **Rescue prompt** — describe what went wrong, get a recovery path.
 - 📄 **Personalized recipe export** — at the end, Sous generates a recipe adjusted to your session: your timings, your adjustments, your kitchen.
 
@@ -80,13 +82,14 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 
 ## Data Model (first pass)
 
-- **Recipe** — title, ingredients, ordered `steps[]`.
-- **Step** — instruction, `expectedVisualState`, `commonFailures[]`, `checkpointMinutes` (when Sous should prompt for a photo).
+- **RawInput** — what the user submitted: `{ sourceText?, sourceUrl? }`. Input to enrichment.
+- **Recipe** — enriched output: title, ingredients, `steps[]`. Cached in Cosmos DB by content hash so the same recipe isn't re-enriched on reuse.
+- **Step** — `{ instruction, expectedVisualState, commonFailures[], checkpointMinutes }`. Fully derived by the enrichment prompt — no hand-authoring required.
 - **Session** — per-cook run: `{ recipeId, startedAt, turns[], adjustments[], personalizedRecipe }`.
-- **Turn** — one checkpoint event: `{ stepId, promptedAt, imageUrl, verdict, advice, actualDurationMinutes }`.
-- **Adjustment** — a deviation noted during the session: `{ stepId, type, description }` — e.g. "added extra flour", "oven ran hot, reduced time by 5min".
-- **PersonalizedRecipe** — generated at session end from the turn history: modified step instructions, adjusted timings, notes specific to this cook's kitchen. Stored on the session so it can be retrieved or shared.
-- **UserPrefs** *(stretch)* — learned calibrations that persist across sessions (oven bias, preferred doneness).
+- **Turn** — one checkpoint event: `{ stepId, promptedAt, verdict, advice, actualDurationMinutes }`.
+- **Adjustment** — a mid-cook deviation: `{ stepId, type, description }` — e.g. "added extra flour", "oven ran hot".
+- **PersonalizedRecipe** — generated at session end: modified step instructions, adjusted timings, notes for this cook's kitchen.
+- **UserPrefs** *(stretch)* — persistent calibrations across sessions (oven bias, preferred doneness).
 
 ## Demo Plan (what we show the judges)
 

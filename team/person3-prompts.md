@@ -51,6 +51,45 @@ Your prompt must instruct the model to return **only this JSON, no prose wrapper
 
 ## Your tasks
 
+### P0 — Recipe enrichment prompt (2h) ⚠️ do this first — it unblocks everyone
+**File:** `server/src/lib/prompts/enrich.js`
+
+**This is the most important prompt in the product.** Any recipe the user pastes in — a URL they scraped, a photo of a cookbook, a rough list of steps — gets passed through this prompt and comes out as a fully structured recipe Sous can work with.
+
+Export `buildEnrichPrompt(rawText)` → messages array for the OpenAI chat API (text only, no image).
+
+The prompt must instruct the model to:
+1. Parse the recipe into ordered steps.
+2. For each step, derive:
+   - `expectedVisualState` — what would an experienced chef look for here? Be specific: color, texture, consistency, size, smell cues if visual isn't enough.
+   - `commonFailures[]` — 2–4 things that commonly go wrong at this step and how they visually present.
+   - `checkpointMinutes` — how long into this step should Sous prompt for a photo check?
+3. Return strict JSON matching the Recipe schema (see below).
+
+```json
+{
+  "title": "...",
+  "steps": [
+    {
+      "stepId": "step-1",
+      "instruction": "...",
+      "expectedVisualState": "...",
+      "commonFailures": ["...", "..."],
+      "checkpointMinutes": 5
+    }
+  ]
+}
+```
+
+Test against at least 3 very different recipe inputs:
+- A bare-bones recipe (just ingredient list + vague steps)
+- A detailed recipe with timing already included
+- A recipe for something with very visual checkpoints (bread, caramel, steak)
+
+✅ Done when: all 3 test inputs produce a valid structured recipe JSON with non-empty `expectedVisualState` and `commonFailures` per step.
+
+---
+
 ### P1 — Assess prompt, first draft (1.5h)
 **File:** `server/src/lib/prompts/assess.js`
 

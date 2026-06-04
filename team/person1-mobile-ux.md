@@ -18,9 +18,13 @@ You call one API endpoint. That's your only external dependency.
 
 ---
 
-## Your API contract (the one thing to agree on at the start)
+## Your API contract (agree on this at the start)
 
 ```
+POST http://localhost:7071/api/recipes/enrich
+Body:    { "sourceText": "..." }   or   { "sourceUrl": "https://..." }
+Returns: { "id": "...", "title": "...", "steps": [{ "stepId", "instruction", "expectedVisualState", "commonFailures", "checkpointMinutes" }] }
+
 POST http://localhost:7071/api/assess
 Body:    { "recipeId": "...", "stepId": "...", "imageBase64": "..." }
 Returns: { "verdict": "on_track" | "adjust" | "done", "advice": "...", "confidence": 0.0–1.0 }
@@ -29,25 +33,24 @@ POST http://localhost:7071/api/rescue
 Body:    { "recipeId": "...", "stepId": "...", "problem": "..." }
 Returns: { "advice": "..." }
 
-GET  http://localhost:7071/api/recipes
-Returns: [{ "id": "...", "title": "...", "description": "..." }]
-
-GET  http://localhost:7071/api/recipes/:id
-Returns: { "id", "title", "steps": [{ "stepId", "instruction", "expectedVisualState", "commonFailures" }] }
+GET  http://localhost:7071/api/sessions/:id/recipe
+Returns: { personalizedRecipe: { title, personalizedSteps[], notes } }
 ```
 
-Store the base URL in `app/src/constants/api.ts` as `API_BASE_URL`. **Use mock data for everything until the real server is ready** — don't block on Person 2.
+Store the base URL in `app/src/constants/api.ts` as `API_BASE_URL`. **Use a hardcoded mock enriched recipe until the server is ready** — don't block on Person 2.
 
 ---
 
 ## Your tasks
 
-### M1 — Recipe list screen (1.5h)
+### M1 — Recipe input screen (1.5h)
 **File:** `app/src/app/index.tsx`
 
-Replace the Expo boilerplate. Render a `FlatList` of recipe cards (title, short description). Tapping navigates to the step viewer. Start with a local `MOCK_RECIPES` constant; swap to a real fetch once the server is up.
+Replace the Expo boilerplate. This is the entry point: a large text area where the user pastes any recipe (or a URL), and a "Let's Cook" button. On submit, POST the raw text/URL to `/api/recipes/enrich`. Show a loading state ("Sous is researching your recipe…") while the server enriches it — this takes a few seconds. On success, navigate to the step viewer with the enriched recipe.
 
-✅ Done when: app launches, shows 2+ recipes, tap navigates forward.
+No fixed recipe list. Any recipe works.
+
+✅ Done when: user can paste a recipe, tap submit, see a loading state, and land on the step viewer with structured steps.
 
 ---
 

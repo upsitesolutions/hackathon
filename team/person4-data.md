@@ -1,11 +1,11 @@
 # Person 4 — Data / Recipes
 
 ## Your job in one sentence
-Provision the database, write the DB client, and author the recipe content that makes the demo land.
+Provision the database, write the DB client, and prepare the test fixtures Person 3 uses to calibrate prompts.
 
 ## You own
 ```
-database/              ← schema docs, seed scripts
+database/              ← schema docs, seed scripts, test fixtures
 server/src/lib/db.js   ← Cosmos DB client wrapper
 ```
 
@@ -16,7 +16,7 @@ You never touch `app/`, `server/src/functions/`, or `server/src/lib/prompts/`.
 - How Azure Functions routes work
 - How the vision prompt is designed
 
-The recipe content you write (`expectedVisualState` and `commonFailures` per step) is what Person 3 calibrates the prompts against, and what the demo hinges on. **This is as much content/writing work as it is engineering.**
+**Important shift:** Sous no longer has a fixed recipe library. Users bring their own recipes, and the enrichment prompt (Person 3's P0 task) generates all the structured data automatically. Your seeded recipes are **test fixtures** — they let Person 3 verify the enrichment prompt is working and let the team demo without needing live enrichment. Think of them as golden examples, not the product's recipe list.
 
 ---
 
@@ -26,7 +26,7 @@ The recipe content you write (`expectedVisualState` and `commonFailures` per ste
 |-------------|---------|-------|
 | Cosmos DB credentials (endpoint + key) | Person 2, for `.env` | Day 1, as soon as containers are provisioned |
 | `server/src/lib/db.js` | Person 2 | Mid-session |
-| Seeded recipe documents in Cosmos DB | Person 3 (for prompt calibration) | Mid-session |
+| Raw recipe text files (`database/fixtures/`) | Person 3 (as enrichment prompt test inputs) | Early — unblocks P0 |
 
 ---
 
@@ -130,8 +130,14 @@ Add 5s timeout and basic retry on 429 (Cosmos DB rate limit).
 
 ---
 
-### D3 — Seed recipe: Rustic bread (2h)
-**This is the primary demo recipe. Invest in the descriptions.**
+### D3 — Demo fixture: Rustic bread (2h)
+**Used by Person 3 to calibrate the enrichment and assess prompts, and as the primary demo.**
+
+Two things to produce:
+1. `database/fixtures/bread-raw.txt` — raw recipe text exactly as a user might paste it in (no structured fields). This is what gets fed to the enrichment prompt.
+2. `database/fixtures/bread-enriched.json` — the expected enriched output (hand-authored). Person 3 uses this to verify the prompt produces the right structure.
+
+For the enriched JSON, include:
 
 6–8 steps. Each step needs a rich `expectedVisualState` and 2–3 `commonFailures`. Reference:
 
@@ -148,8 +154,10 @@ Add 5s timeout and basic retry on 429 (Cosmos DB rate limit).
 
 ---
 
-### D4 — Seed recipe: Pan-seared steak (1.5h)
-**Fast, visual, dramatic — the backup demo.**
+### D4 — Demo fixture: Pan-seared steak (1.5h)
+**Fast, visual, dramatic — backup demo. Same two-file pattern as D3.**
+
+Produce `database/fixtures/steak-raw.txt` and `database/fixtures/steak-enriched.json`.
 
 4–5 steps:
 
@@ -164,8 +172,10 @@ Add 5s timeout and basic retry on 429 (Cosmos DB rate limit).
 
 ---
 
-### D5 — Seed recipe: Caramelized onions (1h)
-**Powers the rescue demo — focus on failure modes.**
+### D5 — Demo fixture: Caramelized onions (1h)
+**Powers the rescue demo — focus on failure modes. Same two-file pattern.**
+
+Produce `database/fixtures/onions-raw.txt` and `database/fixtures/onions-enriched.json`.
 
 4–5 steps. The point of this recipe is the rescue flow, so load up the `commonFailures` — these are what "my onions seized" and "they're turning black" map to.
 

@@ -96,15 +96,32 @@ Accept `{ recipeId, stepId, problem }` — 400 if missing. Load step, call `buil
 
 ---
 
-### A4 — /recipes HTTP triggers (1h)
-**File:** `server/src/functions/recipes.js`
+### A4 — /recipes/enrich HTTP trigger (2h)
+**File:** `server/src/functions/enrich.js`
 
-- `GET /api/recipes` → `db.getRecipes()`
-- `GET /api/recipes/{id}` → `db.getRecipe(id)`
+**This is the first thing Person 1 calls — it's what makes any recipe work.**
 
-Read-only, no auth. Stub db until Person 4 delivers.
+Accept `{ sourceText?, sourceUrl? }` — 400 if both missing. If `sourceUrl` provided, fetch page text and strip HTML before passing to the prompt.
 
-✅ Done when: both endpoints return data. Person 1 can drop their mock.
+Steps:
+1. Hash the input text — check Cosmos DB for a cached enriched recipe with that hash. Return cached if found.
+2. Call `buildEnrichPrompt(rawText)` from Person 3 (task P0).
+3. Parse the returned structured recipe.
+4. Save to Cosmos DB with the content hash.
+5. Return enriched recipe: `{ id, title, steps[] }` with `expectedVisualState`, `commonFailures[]`, `checkpointMinutes` per step.
+
+Stub `buildEnrichPrompt` with a hardcoded recipe until Person 3 delivers.
+
+✅ Done when: POST raw recipe text → response contains structured steps with visual states and timings.
+
+---
+
+### A4b — GET /sessions/:id/recipe (0.5h)
+**File:** `server/src/functions/sessions.js`
+
+`GET /api/sessions/{id}/recipe` → fetch session from Cosmos DB → return `session.personalizedRecipe`. Return 404 with `{ error: "recipe not yet generated" }` if null.
+
+✅ Done when: returns the personalized recipe after a session completes.
 
 ---
 
