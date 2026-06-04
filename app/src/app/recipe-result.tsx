@@ -1,153 +1,77 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
-import * as Sharing from 'expo-sharing';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import {
-  findMockRecipeCard,
-  MOCK_SAVED_RECIPES,
-  type PersonalizedRecipeCard,
-} from '@/constants/mock-recipe-surfaces';
 import { Colors, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { getSession, type Session } from '@/lib/api';
 
 function normalizeParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function buildShareMessage(recipe: PersonalizedRecipeCard) {
-  const steps = recipe.adjustedInstructions
-    .map((step, index) => `${index + 1}. ${step.title}: ${step.detail}`)
-    .join('\n');
-
-  return `${recipe.title}\n${recipe.personalizationSummary}\n\nAdjusted instructions:\n${steps}\n\nSous notes:\n• ${recipe.notes.join('\n• ')}`;
-}
-
 export default function RecipeResultScreen() {
-  const params = useLocalSearchParams<{ recipeId?: string | string[] }>();
-  const recipeId = normalizeParam(params.recipeId);
-  const recipe = findMockRecipeCard(recipeId) ?? MOCK_SAVED_RECIPES[0];
+  const theme = useTheme();
+  const params = useLocalSearchParams<{ sessionId?: string | string[] }>();
+  const sessionId = normalizeParam(params.sessionId);
 
-  const handleShare = async () => {
-    try {
-      // expo-sharing is available in this app, but in SDK 56 it shares file URLs.
-      // This milestone screen is still text-only mock data, so use the native share sheet
-      // until the app exports a card asset or saved file that can be passed to shareAsync.
-      await Sharing.isAvailableAsync();
-      await Share.share({
-        title: recipe.title,
-        message: buildShareMessage(recipe),
-      });
-    } catch {
-      Alert.alert('Share unavailable', 'We could not open the share sheet for this recipe card.');
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setErrorMessage('Missing session id.');
+      setIsLoading(false);
+      return;
     }
-  };
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await getSession(sessionId);
+        if (!cancelled) setSession(s);
+      } catch (err) {
+        if (!cancelled) setErrorMessage(err instanceof Error ? err.message : 'Failed to load.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  if (isLoading) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: 'Recipe' }} />
+        <ThemedView style={styles.centered}>
+          <ActivityIndicator color={theme.text} />
+        </ThemedView>
+      </>
+    );
+  }
+
+  if (!session || errorMessage) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: true, title: 'Recipe' }} />
+        <ThemedView style={styles.centered}>
+          <ThemedText type="subtitle">Couldn&apos;t load this recipe</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            {errorMessage ?? 'No session data returned.'}
+          </ThemedText>
+        </ThemedView>
+      </>
+    );
+  }
+
+  const recipe = session.recipe;
 
   return (
     <>
-      <ScrollView
-        style={styles.scrollView}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.content}>
-        <ThemedView type="backgroundElement" style={styles.heroCard}>
-          <ThemedText type="small" themeColor="textSecondary" selectable>
-            Personalized recipe result
-          </ThemedText>
-          <ThemedText type="subtitle" style={styles.heroTitle} selectable>
-            {recipe.title}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.heroSummary} selectable>
-            {recipe.personalizationSummary}
-          </ThemedText>
-
-          <View style={styles.metricRow}>
-            <ThemedView type="backgroundSelected" style={styles.metricChip}>
-              <ThemedText type="small" selectable>
-                {recipe.mealType}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView type="backgroundSelected" style={styles.metricChip}>
-              <ThemedText type="small" selectable>
-                {recipe.cookTimeLabel}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView type="backgroundSelected" style={styles.metricChip}>
-              <ThemedText type="small" selectable>
-                {recipe.savedLabel}
-              </ThemedText>
-            </ThemedView>
-          </View>
-
-          <ThemedView style={styles.noteBlock}>
-            <ThemedText type="smallBold" selectable>
-              Why this version works
-            </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.noteText} selectable>
-              {recipe.heroNote}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedText type="smallBold" selectable>
-            Adjusted instructions
-          </ThemedText>
-          {recipe.adjustedInstructions.map((step, index) => (
-            <ThemedView key={step.id} type="backgroundElement" style={styles.stepCard}>
-              <ThemedText type="small" themeColor="textSecondary" selectable>
-                Step {index + 1}
-              </ThemedText>
-              <ThemedText type="default" style={styles.stepTitle} selectable>
-                {step.title}
-              </ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.stepBody} selectable>
-                {step.detail}
-              </ThemedText>
-            </ThemedView>
-          ))}
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedText type="smallBold" selectable>
-            Sous notes
-          </ThemedText>
-          <ThemedView type="backgroundElement" style={styles.notesCard}>
-            {recipe.notes.map((note) => (
-              <ThemedText key={note} style={styles.listItem} selectable>
-                • {note}
-              </ThemedText>
-            ))}
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedText type="smallBold" selectable>
-            Best used when
-          </ThemedText>
-          <ThemedView type="backgroundElement" style={styles.notesCard}>
-            <ThemedText themeColor="textSecondary" style={styles.noteText} selectable>
-              {recipe.bestFor}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Share ${recipe.title}`}
-          onPress={() => void handleShare()}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            { backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a' },
-          ]}>
-          <ThemedText style={styles.primaryButtonText}>Share recipe card</ThemedText>
-        </Pressable>
-
-        <ThemedText themeColor="textSecondary" style={styles.footerNote} selectable>
-          expo-sharing is available in the app, but this text-first mock card still uses the native
-          share sheet until the cooking flow exports a file or card asset that can be passed to the
-          Expo Sharing API.
-        </ThemedText>
-      </ScrollView>
       <Stack.Screen
         options={{
           headerShown: true,
@@ -155,73 +79,130 @@ export default function RecipeResultScreen() {
           title: 'Recipe Card',
         }}
       />
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <ThemedView type="backgroundElement" style={styles.heroCard}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Saved recipe
+          </ThemedText>
+          <ThemedText type="subtitle" style={styles.heroTitle}>
+            {recipe.title}
+          </ThemedText>
+          {recipe.description ? (
+            <ThemedText themeColor="textSecondary" style={styles.heroSummary}>
+              {recipe.description}
+            </ThemedText>
+          ) : null}
+          <ThemedText themeColor="textSecondary" style={styles.prompt}>
+            Started from: &ldquo;{session.prompt}&rdquo;
+          </ThemedText>
+        </ThemedView>
+
+        <ThemedView style={styles.section}>
+          <ThemedText type="smallBold">Steps</ThemedText>
+          {recipe.steps.map((step, index) => {
+            const stepTurns = session.turns.filter((t) => t.stepId === step.stepId);
+            return (
+              <ThemedView key={step.stepId} type="backgroundElement" style={styles.stepCard}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Step {index + 1}
+                </ThemedText>
+                <ThemedText type="default" style={styles.stepTitle}>
+                  {step.instruction}
+                </ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.stepBody}>
+                  Look for: {step.expectedVisualState}
+                </ThemedText>
+                {stepTurns.length > 0 ? (
+                  <View style={styles.turnRow}>
+                    <ThemedText type="smallBold">Your check-ins</ThemedText>
+                    {stepTurns.map((turn, turnIndex) => {
+                      const copy = getVerdictCopy(turn.verdict);
+                      return (
+                        <ThemedView
+                          key={`${turn.promptedAt}-${turnIndex}`}
+                          type="backgroundElement"
+                          style={[styles.turnCard, { borderColor: copy.tint }]}>
+                          {turn.imageDataUrl ? (
+                            <Image
+                              source={{ uri: turn.imageDataUrl }}
+                              style={styles.turnImage}
+                            />
+                          ) : null}
+                          <View
+                            style={[
+                              styles.verdictPill,
+                              { backgroundColor: copy.tintSoft, borderColor: copy.tint },
+                            ]}>
+                            <ThemedText
+                              style={[styles.verdictPillText, { color: copy.tint }]}>
+                              {copy.label}
+                            </ThemedText>
+                          </View>
+                          <ThemedText themeColor="textSecondary" style={styles.stepBody}>
+                            {turn.advice}
+                          </ThemedText>
+                        </ThemedView>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </ThemedView>
+            );
+          })}
+        </ThemedView>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace('/')}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            { backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a' },
+          ]}>
+          <ThemedText style={styles.primaryButtonText}>Cook something new</ThemedText>
+        </Pressable>
+      </ScrollView>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.four,
-    paddingBottom: Spacing.four,
-    gap: Spacing.three,
-  },
-  heroCard: {
-    borderRadius: 28,
-    padding: Spacing.three,
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
+  scrollView: { flex: 1 },
+  content: { paddingHorizontal: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.four, gap: Spacing.three },
+  heroCard: { borderRadius: 28, padding: Spacing.three, gap: Spacing.two },
+  heroTitle: { fontSize: 30, lineHeight: 36 },
+  heroSummary: { lineHeight: 24 },
+  prompt: { fontStyle: 'italic' },
+  section: { gap: Spacing.two },
+  stepCard: { borderRadius: 24, padding: Spacing.three, gap: Spacing.one },
+  stepTitle: { fontWeight: '700' },
+  stepBody: { lineHeight: 22 },
+  turnRow: { marginTop: Spacing.two, gap: Spacing.two },
+  turnCard: {
+    borderRadius: Spacing.three,
+    borderWidth: 1,
     gap: Spacing.two,
-    borderCurve: 'continuous',
-    boxShadow: '0 16px 40px rgba(15, 23, 42, 0.1)',
+    padding: Spacing.two,
   },
-  heroTitle: {
-    fontSize: 34,
-    lineHeight: 38,
+  turnImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: Spacing.two,
+    resizeMode: 'cover',
   },
-  heroSummary: {
-    lineHeight: 24,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  metricChip: {
-    borderRadius: 999,
+  verdictPill: {
+    alignSelf: 'flex-start',
+    borderRadius: Spacing.five,
+    borderWidth: 1,
     paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
+    paddingVertical: 2,
   },
-  noteBlock: {
-    gap: Spacing.one,
-  },
-  noteText: {
-    lineHeight: 24,
-  },
-  section: {
-    gap: Spacing.two,
-  },
-  stepCard: {
-    borderRadius: 24,
-    padding: Spacing.three,
-    gap: Spacing.one,
-    borderCurve: 'continuous',
-  },
-  stepTitle: {
+  verdictPillText: {
+    fontSize: 12,
     fontWeight: '700',
-  },
-  stepBody: {
-    lineHeight: 24,
-  },
-  notesCard: {
-    borderRadius: 24,
-    padding: Spacing.three,
-    gap: Spacing.one,
-    borderCurve: 'continuous',
-  },
-  listItem: {
-    lineHeight: 24,
+    letterSpacing: 0.4,
+    lineHeight: 16,
+    textTransform: 'uppercase',
   },
   primaryButton: {
     borderRadius: Spacing.two,
@@ -229,12 +210,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
   },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  footerNote: {
-    lineHeight: 22,
-  },
+  primaryButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 16 },
 });
+
+function getVerdictCopy(verdict: Session['turns'][number]['verdict']) {
+  switch (verdict) {
+    case 'on_track':
+      return { label: 'On track', tint: '#2D8C5D', tintSoft: '#E6F4EC' };
+    case 'adjust':
+      return { label: 'Adjust', tint: '#C96D00', tintSoft: '#FFF1DF' };
+    case 'done':
+      return { label: 'Done', tint: '#5765F2', tintSoft: '#E9EBFF' };
+    default:
+      return { label: 'Checked', tint: '#555', tintSoft: '#EEE' };
+  }
+}

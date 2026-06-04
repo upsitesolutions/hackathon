@@ -48,8 +48,6 @@ export interface Turn {
   promptedAt: string;
   verdict: MessageVerdict;
   advice: string;
-  imageDataUrl?: string;
-  imageMimeType?: string;
 }
 
 export interface Session {
@@ -102,7 +100,7 @@ export async function saveSession(sessionId: string): Promise<Session> {
 }
 
 export async function listSavedSessions(): Promise<SavedSessionSummary[]> {
-  const data = await getJson<{ sessions: SavedSessionSummary[] }>('/saved-sessions');
+  const data = await getJson<{ sessions: SavedSessionSummary[] }>('/sessions/saved');
   return data.sessions ?? [];
 }
 

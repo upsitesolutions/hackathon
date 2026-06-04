@@ -14,9 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
-import { enrichMockRecipeFromInput } from '@/constants/mock-recipes';
 import { useTheme } from '@/hooks/use-theme';
-import { createSession } from '@/lib/api';
+import { generateRecipe } from '@/lib/api';
 
 const QUICK_START_PROMPTS = [
   "I'm making salmon",
@@ -44,19 +43,17 @@ export default function HomeScreen() {
     setErrorMessage(null);
 
     try {
-      const recipe = enrichMockRecipeFromInput(normalizedInput);
+      const { sessionId, recipeId, recipe } = await generateRecipe(normalizedInput);
       const initialStep = recipe.steps[0];
 
       if (!initialStep) {
-        setErrorMessage('This recipe does not include any steps yet. Try another dish.');
+        setErrorMessage('SueChef returned a recipe with no steps. Try rewording the request.');
         return;
       }
 
-      const session = await createSession(recipe.id);
-
       router.push({
         pathname: '/recipe/[id]',
-        params: { id: recipe.id, sessionId: session.sessionId, stepId: initialStep.stepId },
+        params: { id: recipeId, sessionId, stepId: initialStep.stepId },
       });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));

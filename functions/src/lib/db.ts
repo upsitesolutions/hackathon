@@ -35,6 +35,8 @@ export type Turn = {
   advice: string;
   actualDurationMinutes: number;
   imageBlobPath?: string;
+  imageDataUrl?: string;
+  imageMimeType?: string;
 };
 
 export type Adjustment = {
@@ -73,6 +75,11 @@ export type Session = {
   sessionId: string;
   recipeId: string;
   startedAt: string;
+  prompt: string;
+  title: string;
+  recipe: Recipe;
+  saved: boolean;
+  savedAt?: string;
   turns: Turn[];
   adjustments: Adjustment[];
   personalizedRecipe: PersonalizedRecipe | null;
@@ -250,13 +257,21 @@ export async function getCachedRecipe(contentHash: string): Promise<Recipe | nul
   }, "getCachedRecipe");
 }
 
-export async function createSession(sessionId: string, recipeId: string): Promise<void> {
+export async function createSession(
+  sessionId: string,
+  recipeId: string,
+  opts: { prompt: string; title: string; recipe: Recipe }
+): Promise<void> {
   const container = getContainer(SESSIONS_CONTAINER_NAME);
   const session: Session = {
     id: sessionId,
     sessionId,
     recipeId,
     startedAt: new Date().toISOString(),
+    prompt: opts.prompt,
+    title: opts.title,
+    recipe: opts.recipe,
+    saved: false,
     turns: [],
     adjustments: [],
     personalizedRecipe: null
@@ -265,6 +280,37 @@ export async function createSession(sessionId: string, recipeId: string): Promis
   await withRetry(async () => {
     await container.items.upsert<Session>(session);
   }, "createSession");
+}
+
+export async function markSessionSaved(sessionId: string): Promise<void> {
+  const container = getContainer(SESSIONS_CONTAINER_NAME);
+  const pk = toSessionIdPartitionKey(sessionId);
+
+  await withRetry(async () => {
+    try {
+      await container.item(sessionId, pk).patch([
+        { op: "set", path: "/saved", value: true },
+        { op: "set", path: "/savedAt", value: new Date().toISOString() }
+      ]);
+      return;
+    } catch {
+      const { resource } = await container.item(sessionId, pk).read<Session>();
+      if (!resource) throw new Error(`Session not found for sessionId=${sessionId}`);
+      resource.saved = true;
+      resource.savedAt = new Date().toISOString();
+      await container.item(sessionId, pk).replace<Session>(resource);
+    }
+  }, "markSessionSaved");
+}
+
+export async function listSavedSessions(): Promise<Session[]> {
+  const container = getContainer(SESSIONS_CONTAINER_NAME);
+  return withRetry(async () => {
+    const { resources } = await container.items
+      .query<Session>({ query: "SELECT * FROM c WHERE c.saved = true ORDER BY c.savedAt DESC" })
+      .fetchAll();
+    return resources;
+  }, "listSavedSessions");
 }
 
 export async function appendTurn(sessionId: string, turn: Turn): Promise<void> {

@@ -1,18 +1,28 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MOCK_RECIPES } from '@/constants/mock-recipes';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { sendMessage, type SendMessageResponse } from '@/lib/api';
-
-const QUICK_ACTIONS = ["What's next?", 'What did I do wrong?'] as const;
-type QuickActionQuestion = (typeof QUICK_ACTIONS)[number];
+import {
+  assess,
+  getSession,
+  saveSession,
+  type AssessResponse,
+  type Recipe,
+  type Session,
+} from '@/lib/api';
 
 type SelectedImage = {
   base64: string;
@@ -21,30 +31,8 @@ type SelectedImage = {
   width: number;
 };
 
-type StepInteractionState = {
-  activeQuestion: QuickActionQuestion;
-  errorMessage: string | null;
-  isSending: boolean;
-  key: string;
-  result: SendMessageResponse | null;
-  selectedImage: SelectedImage | null;
-};
-
-const DEFAULT_QUICK_ACTION: QuickActionQuestion = "What's next?";
-
 function normalizeParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function createStepInteractionState(key: string): StepInteractionState {
-  return {
-    activeQuestion: DEFAULT_QUICK_ACTION,
-    errorMessage: null,
-    isSending: false,
-    key,
-    result: null,
-    selectedImage: null,
-  };
 }
 
 export default function RecipeStepScreen() {
@@ -57,30 +45,112 @@ export default function RecipeStepScreen() {
   const recipeId = normalizeParam(params.id);
   const sessionId = normalizeParam(params.sessionId);
   const requestedStepId = normalizeParam(params.stepId);
-  const recipe = MOCK_RECIPES.find((item) => item.id === recipeId);
-  const stateKey = `${recipeId ?? 'missing-recipe'}:${requestedStepId ?? 'first-step'}`;
-  const [interactionState, setInteractionState] = useState<StepInteractionState>(() =>
-    createStepInteractionState(stateKey)
-  );
-  const currentInteractionState =
-    interactionState.key === stateKey ? interactionState : createStepInteractionState(stateKey);
-  const { activeQuestion, errorMessage, isSending, result, selectedImage } =
-    currentInteractionState;
-  const updateInteractionState = (nextState: Partial<Omit<StepInteractionState, 'key'>>) => {
-    setInteractionState((currentState) => ({
-      ...(currentState.key === stateKey ? currentState : createStepInteractionState(stateKey)),
-      ...nextState,
-    }));
-  };
 
-  if (!recipe) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  const [isAssessing, setIsAssessing] = useState(false);
+  const [verdict, setVerdict] = useState<AssessResponse | null>(null);
+  const [assessError, setAssessError] = useState<string | null>(null);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedAlready, setSavedAlready] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setLoadError('Missing session id.');
+      setIsLoadingSession(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await getSession(sessionId);
+        if (cancelled) return;
+        setSession(s);
+        setSavedAlready(Boolean(s.saved));
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(getErrorMessage(err));
+      } finally {
+        if (!cancelled) setIsLoadingSession(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  // Reset per-step state when the step changes
+  useEffect(() => {
+    setSelectedImage(null);
+    setVerdict(null);
+    setAssessError(null);
+  }, [requestedStepId]);
+
+  useEffect(() => {
+    if (!selectedImage) return;
+    const timeout = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, [selectedImage]);
+
+  const recipe: Recipe | undefined = session?.recipe;
+  const stepIndex = recipe
+    ? Math.max(0, recipe.steps.findIndex((s) => s.stepId === requestedStepId))
+    : 0;
+  const activeStep = recipe?.steps[stepIndex];
+  const isFirstStep = stepIndex === 0;
+  const isLastStep = recipe ? stepIndex === recipe.steps.length - 1 : false;
+
+  const submitForAssessment = useCallback(
+    async (image: SelectedImage) => {
+      if (!sessionId || !recipe || !activeStep) return;
+      setIsAssessing(true);
+      setAssessError(null);
+      setVerdict(null);
+      try {
+        const result = await assess({
+          sessionId,
+          recipeId: recipe.id,
+          stepId: activeStep.stepId,
+          imageBase64: image.base64,
+        });
+        setVerdict(result);
+      } catch (err) {
+        setAssessError(getErrorMessage(err));
+      } finally {
+        setIsAssessing(false);
+      }
+    },
+    [sessionId, recipe?.id, activeStep?.stepId]
+  );
+
+  if (isLoadingSession) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
           <ThemedView style={styles.centeredContent}>
-            <ThemedText type="subtitle">Recipe unavailable</ThemedText>
+            <ActivityIndicator color={theme.text} />
+            <ThemedText themeColor="textSecondary">Loading your cooking session…</ThemedText>
+          </ThemedView>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
+  if (!session || !recipe || !activeStep || loadError) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <ThemedView style={styles.centeredContent}>
+            <ThemedText type="subtitle">Couldn&apos;t load this session</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.centeredBody}>
-              We couldn&apos;t find that cooking session in the current mock data.
+              {loadError ?? 'No session data returned.'}
             </ThemedText>
             <Pressable
               accessibilityRole="button"
@@ -89,7 +159,7 @@ export default function RecipeStepScreen() {
                 styles.primaryButton,
                 { backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a' },
               ]}>
-              <ThemedText style={styles.primaryButtonText}>Back to recipes</ThemedText>
+              <ThemedText style={styles.primaryButtonText}>Start a new recipe</ThemedText>
             </Pressable>
           </ThemedView>
         </SafeAreaView>
@@ -97,140 +167,85 @@ export default function RecipeStepScreen() {
     );
   }
 
-  const stepIndex = recipe.steps.findIndex((step) => step.stepId === requestedStepId);
-  const activeStepIndex = stepIndex >= 0 ? stepIndex : 0;
-  const activeStep = recipe.steps[activeStepIndex];
-  const isFirstStep = activeStepIndex === 0;
-  const isLastStep = activeStepIndex === recipe.steps.length - 1;
-
   const navigateToStep = (nextIndex: number) => {
     const nextStep = recipe.steps[nextIndex];
-
-    if (!nextStep) {
-      return;
-    }
-
+    if (!nextStep) return;
     router.replace({
       pathname: '/recipe/[id]',
       params: { id: recipe.id, sessionId, stepId: nextStep.stepId },
     });
   };
 
-  const handleSubmitImage = async (image: SelectedImage, question: QuickActionQuestion) => {
-    if (!sessionId) {
-      updateInteractionState({
-        errorMessage: 'This cooking session is missing an API session id. Go back and start again.',
-      });
-      return;
-    }
-
-    updateInteractionState({ errorMessage: null, isSending: true, result: null });
-
+  const handlePickImage = async (source: 'camera' | 'library') => {
+    if (isAssessing) return;
     try {
-      const response = await sendMessage({
-        sessionId,
-        recipeId: recipe.id,
-        stepId: activeStep.stepId,
-        question,
-        imageBase64: image.base64,
-      });
-      updateInteractionState({ result: response });
-    } catch (error) {
-      updateInteractionState({ errorMessage: getErrorMessage(error) });
-    } finally {
-      updateInteractionState({ isSending: false });
-    }
-  };
-
-  const handlePickImage = async (
-    source: 'camera' | 'library',
-    question: QuickActionQuestion = activeQuestion
-  ) => {
-    if (isSending) {
-      return;
-    }
-
-    try {
-      updateInteractionState({ activeQuestion: question, errorMessage: null });
-
-      const permissionGranted =
+      setAssessError(null);
+      const granted =
         source === 'camera' ? await requestCameraPermission() : await requestLibraryPermission();
-
-      if (!permissionGranted) {
-        updateInteractionState({
-          errorMessage:
-            source === 'camera'
-              ? 'Camera access is required to capture a checkpoint photo.'
-              : 'Photo library access is required to choose a checkpoint photo.',
-        });
+      if (!granted) {
+        setAssessError(
+          source === 'camera'
+            ? 'Camera access is required to check this step.'
+            : 'Photo library access is required to pick an image.'
+        );
         return;
       }
 
-      const pickerResult =
+      const result =
         source === 'camera'
           ? await ImagePicker.launchCameraAsync(imagePickerOptions)
           : await ImagePicker.launchImageLibraryAsync(imagePickerOptions);
 
-      if (pickerResult.canceled) {
-        return;
-      }
-
-      const asset = pickerResult.assets[0];
-
+      if (result.canceled) return;
+      const asset = result.assets[0];
       if (!asset?.base64) {
-        updateInteractionState({
-          errorMessage: 'The selected image did not include a base64 payload. Please try again.',
-        });
+        setAssessError('The selected image did not include base64 data.');
         return;
       }
 
-      const nextImage: SelectedImage = {
+      const next: SelectedImage = {
         base64: asset.base64,
         height: asset.height,
         uri: asset.uri,
         width: asset.width,
       };
-
-      updateInteractionState({ selectedImage: nextImage });
-      await handleSubmitImage(nextImage, question);
-    } catch (error) {
-      updateInteractionState({ errorMessage: getErrorMessage(error), isSending: false });
+      setSelectedImage(next);
+      await submitForAssessment(next);
+    } catch (err) {
+      setAssessError(getErrorMessage(err));
     }
   };
 
-  const handleOpenImageSource = (question: QuickActionQuestion = activeQuestion) => {
-    Alert.alert('Check this step', 'Choose a cooking checkpoint photo source.', [
-      {
-        text: 'Camera',
-        onPress: () => void handlePickImage('camera', question),
-      },
-      {
-        text: 'Photo Library',
-        onPress: () => void handlePickImage('library', question),
-      },
-      {
-        style: 'cancel',
-        text: 'Cancel',
-      },
+  const handleCheckPress = () => {
+    Alert.alert('Check this step', 'Take a photo or pick one from your library.', [
+      { text: 'Camera', onPress: () => void handlePickImage('camera') },
+      { text: 'Photo Library', onPress: () => void handlePickImage('library') },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
-  const handleQuickAction = (question: QuickActionQuestion) => {
-    updateInteractionState({ activeQuestion: question });
-
-    if (selectedImage) {
-      void handleSubmitImage(selectedImage, question);
-      return;
+  const handleSave = async () => {
+    if (!sessionId || isSaving) return;
+    setIsSaving(true);
+    try {
+      await saveSession(sessionId);
+      setSavedAlready(true);
+      Alert.alert('Saved!', 'This recipe is now in your Saved tab.');
+    } catch (err) {
+      Alert.alert('Could not save', getErrorMessage(err));
+    } finally {
+      setIsSaving(false);
     }
-
-    handleOpenImageSource(question);
   };
+
+  const canProceed = verdict?.verdict === 'on_track' || verdict?.verdict === 'done';
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.screen}>
           <ScrollView
+            ref={scrollViewRef}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}>
             <Pressable
@@ -242,11 +257,14 @@ export default function RecipeStepScreen() {
 
             <ThemedView style={styles.heading}>
               <ThemedText type="small" themeColor="textSecondary">
-                Step {activeStepIndex + 1} of {recipe.steps.length}
+                Step {stepIndex + 1} of {recipe.steps.length}
               </ThemedText>
               <ThemedText type="title" style={styles.recipeTitle}>
                 {recipe.title}
               </ThemedText>
+              {recipe.description ? (
+                <ThemedText themeColor="textSecondary">{recipe.description}</ThemedText>
+              ) : null}
             </ThemedView>
 
             <ThemedView type="backgroundElement" style={styles.card}>
@@ -280,106 +298,47 @@ export default function RecipeStepScreen() {
               </ThemedView>
             ) : null}
 
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Ask Sous with a photo
-              </ThemedText>
-              <ThemedText style={styles.expectedState}>
-                Pick a quick question, then capture or choose a checkpoint image.
-              </ThemedText>
-
-              <ThemedView type="backgroundElement" style={styles.quickActionRow}>
-                {QUICK_ACTIONS.map((question) => {
-                  const isActive = activeQuestion === question;
-
-                  return (
-                    <Pressable
-                      key={question}
-                      accessibilityRole="button"
-                      disabled={isSending}
-                      onPress={() => handleQuickAction(question)}
-                      style={({ pressed }) => [
-                        styles.quickActionButton,
-                        {
-                          backgroundColor: isActive
-                            ? theme.backgroundSelected
-                            : pressed
-                              ? theme.backgroundSelected
-                              : theme.background,
-                          opacity: isSending ? 0.55 : 1,
-                        },
-                      ]}>
-                      <ThemedText type="smallBold">{question}</ThemedText>
-                    </Pressable>
-                  );
-                })}
+            {selectedImage ? (
+              <ThemedView type="backgroundElement" style={styles.resultCard}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Your photo
+                </ThemedText>
+                <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
               </ThemedView>
+            ) : null}
 
-              {selectedImage ? (
-                <ThemedView type="backgroundElement" style={styles.resultCard}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Selected image
-                  </ThemedText>
-                  <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {selectedImage.width} × {selectedImage.height} px
-                  </ThemedText>
-                </ThemedView>
-              ) : null}
+            {isAssessing ? (
+              <ThemedView type="backgroundElement" style={styles.loadingCard}>
+                <ActivityIndicator color={theme.text} />
+                <ThemedText themeColor="textSecondary">SueChef is checking your photo…</ThemedText>
+              </ThemedView>
+            ) : null}
 
-              {isSending ? (
-                <ThemedView type="backgroundElement" style={styles.loadingCard}>
-                  <ActivityIndicator color={theme.text} />
-                  <ThemedText themeColor="textSecondary">Sous is reviewing your photo…</ThemedText>
-                </ThemedView>
-              ) : null}
+            {assessError ? (
+              <ThemedView
+                accessibilityRole="alert"
+                type="backgroundElement"
+                style={[styles.errorCard, { borderColor: theme.accent }]}>
+                <ThemedText type="smallBold">Couldn&apos;t check this step</ThemedText>
+                <ThemedText themeColor="textSecondary">{assessError}</ThemedText>
+              </ThemedView>
+            ) : null}
 
-              {errorMessage ? (
-                <ThemedView
-                  accessibilityRole="alert"
-                  type="backgroundElement"
-                  style={[styles.errorCard, { borderColor: theme.accent }]}>
-                  <ThemedText type="smallBold">Couldn&apos;t assess this step</ThemedText>
-                  <ThemedText themeColor="textSecondary">{errorMessage}</ThemedText>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={isSending}
-                    onPress={() =>
-                      selectedImage
-                        ? void handleSubmitImage(selectedImage, activeQuestion)
-                        : handleOpenImageSource(activeQuestion)
-                    }
-                    style={({ pressed }) => [
-                      styles.inlineButton,
-                      {
-                        backgroundColor: pressed ? theme.backgroundSelected : theme.background,
-                        opacity: isSending ? 0.55 : 1,
-                      },
-                    ]}>
-                    <ThemedText type="smallBold">Try again</ThemedText>
-                  </Pressable>
-                </ThemedView>
-              ) : null}
-
-              {result ? <VerdictCard result={result} /> : null}
-            </ThemedView>
+            {verdict ? <VerdictCard result={verdict} /> : null}
           </ScrollView>
 
           <ThemedView style={styles.footer}>
             <ThemedView style={styles.navigationRow}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Go to previous step"
                 disabled={isFirstStep}
-                onPress={() => navigateToStep(activeStepIndex - 1)}
+                onPress={() => navigateToStep(stepIndex - 1)}
                 style={({ pressed }) => [
                   styles.secondaryButton,
                   {
-                    backgroundColor: isFirstStep
-                      ? theme.backgroundElement
-                      : pressed
-                        ? theme.backgroundSelected
-                        : theme.backgroundElement,
+                    backgroundColor: pressed
+                      ? theme.backgroundSelected
+                      : theme.backgroundElement,
                     opacity: isFirstStep ? 0.45 : 1,
                   },
                 ]}>
@@ -388,40 +347,60 @@ export default function RecipeStepScreen() {
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={isLastStep ? 'Stay on final step' : 'Go to next step'}
                 disabled={isLastStep}
-                onPress={() => navigateToStep(activeStepIndex + 1)}
+                onPress={() => navigateToStep(stepIndex + 1)}
                 style={({ pressed }) => [
                   styles.secondaryButton,
                   {
-                    backgroundColor: isLastStep
-                      ? theme.backgroundElement
-                      : pressed
-                        ? theme.backgroundSelected
+                    backgroundColor: pressed
+                      ? theme.backgroundSelected
+                      : canProceed
+                        ? '#E6F4EC'
                         : theme.backgroundElement,
                     opacity: isLastStep ? 0.45 : 1,
                   },
                 ]}>
-                <ThemedText>Next</ThemedText>
+                <ThemedText>{canProceed ? 'Next →' : 'Next'}</ThemedText>
               </Pressable>
             </ThemedView>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Check ${recipe.title} at step ${activeStepIndex + 1}`}
-              disabled={isSending}
-              onPress={() => handleOpenImageSource(activeQuestion)}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                {
-                  backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a',
-                  opacity: isSending ? 0.55 : 1,
-                },
-              ]}>
-              <ThemedText style={styles.primaryButtonText}>
-                {isSending ? 'Checking…' : 'Check it'}
-              </ThemedText>
-            </Pressable>
+            {isLastStep ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSaving || savedAlready}
+                onPress={() => void handleSave()}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  {
+                    backgroundColor: savedAlready
+                      ? '#2D8C5D'
+                      : pressed
+                        ? Colors.dark.backgroundSelected
+                        : '#1a1a1a',
+                    opacity: isSaving ? 0.6 : 1,
+                  },
+                ]}>
+                <ThemedText style={styles.primaryButtonText}>
+                  {savedAlready ? '✓ Saved to your recipes' : isSaving ? 'Saving…' : 'Save this recipe'}
+                </ThemedText>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                disabled={isAssessing}
+                onPress={handleCheckPress}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  {
+                    backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a',
+                    opacity: isAssessing ? 0.55 : 1,
+                  },
+                ]}>
+                <ThemedText style={styles.primaryButtonText}>
+                  {isAssessing ? 'Checking…' : 'Check it'}
+                </ThemedText>
+              </Pressable>
+            )}
           </ThemedView>
         </ThemedView>
       </SafeAreaView>
@@ -434,7 +413,7 @@ const imagePickerOptions: ImagePicker.ImagePickerOptions = {
   base64: true,
   exif: false,
   mediaTypes: ['images'],
-  quality: 0.75,
+  quality: 0.7,
 };
 
 async function requestCameraPermission() {
@@ -447,23 +426,18 @@ async function requestLibraryPermission() {
   return permission.granted;
 }
 
-function VerdictCard({ result }: { result: SendMessageResponse }) {
+function VerdictCard({ result }: { result: AssessResponse }) {
   const theme = useTheme();
   const copy = getVerdictCopy(result.verdict);
   const confidencePercent = Math.round(Math.max(0, Math.min(result.confidence, 1)) * 100);
 
   return (
-    <ThemedView
-      type="backgroundElement"
-      style={[styles.verdictCard, { borderColor: copy.tint }]}>
+    <ThemedView type="backgroundElement" style={[styles.verdictCard, { borderColor: copy.tint }]}>
       <ThemedView type="backgroundElement" style={styles.verdictHeader}>
         <ThemedView
           style={[
             styles.verdictBadge,
-            {
-              backgroundColor: copy.tintSoft,
-              borderColor: copy.tint,
-            },
+            { backgroundColor: copy.tintSoft, borderColor: copy.tint },
           ]}>
           <ThemedText style={[styles.verdictBadgeText, { color: copy.tint }]}>
             {copy.label}
@@ -475,14 +449,14 @@ function VerdictCard({ result }: { result: SendMessageResponse }) {
       </ThemedView>
 
       <ThemedText type="subtitle" style={styles.verdictTitle}>
-        Sous says
+        SueChef says
       </ThemedText>
       <ThemedText style={styles.adviceText}>{result.advice}</ThemedText>
     </ThemedView>
   );
 }
 
-function getVerdictCopy(verdict: SendMessageResponse['verdict']) {
+function getVerdictCopy(verdict: AssessResponse['verdict']) {
   switch (verdict) {
     case 'on_track':
       return { label: 'On track', tint: '#2D8C5D', tintSoft: '#E6F4EC' };
@@ -494,21 +468,13 @@ function getVerdictCopy(verdict: SendMessageResponse['verdict']) {
 }
 
 function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Something went wrong while checking this step. Please try again.';
+  if (error instanceof Error) return error.message;
+  return 'Something went wrong. Please try again.';
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1, alignItems: 'center' },
   screen: {
     flex: 1,
     width: '100%',
@@ -517,10 +483,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     paddingBottom: Spacing.four,
   },
-  scrollContent: {
-    gap: Spacing.three,
-    paddingBottom: Spacing.four,
-  },
+  scrollContent: { gap: Spacing.three, paddingBottom: Spacing.four },
   centeredContent: {
     flex: 1,
     justifyContent: 'center',
@@ -530,65 +493,18 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
   },
-  centeredBody: {
-    textAlign: 'center',
-    maxWidth: 420,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.one,
-  },
-  heading: {
-    gap: Spacing.one,
-  },
-  recipeTitle: {
-    fontSize: 40,
-    lineHeight: 44,
-  },
-  card: {
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  instruction: {
-    fontSize: 28,
-    lineHeight: 36,
-  },
-  expectedState: {
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: '600',
-  },
-  failureList: {
-    gap: Spacing.one,
-  },
-  failureText: {
-    lineHeight: 24,
-  },
-  quickActionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  quickActionButton: {
-    borderRadius: Spacing.five,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-  },
-  resultCard: {
-    borderRadius: Spacing.three,
-    gap: Spacing.two,
-    padding: Spacing.two,
-  },
-  previewImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: Spacing.three,
-    resizeMode: 'cover',
-  },
+  centeredBody: { textAlign: 'center', maxWidth: 420 },
+  pressed: { opacity: 0.7 },
+  backButton: { alignSelf: 'flex-start', paddingVertical: Spacing.one },
+  heading: { gap: Spacing.one },
+  recipeTitle: { fontSize: 36, lineHeight: 42 },
+  card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  instruction: { fontSize: 24, lineHeight: 32 },
+  expectedState: { fontSize: 18, lineHeight: 28, fontWeight: '600' },
+  failureList: { gap: Spacing.one },
+  failureText: { lineHeight: 24 },
+  resultCard: { borderRadius: Spacing.three, gap: Spacing.two, padding: Spacing.two },
+  previewImage: { width: '100%', height: 220, borderRadius: Spacing.three, resizeMode: 'cover' },
   loadingCard: {
     alignItems: 'center',
     borderRadius: Spacing.three,
@@ -596,24 +512,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.three,
   },
-  errorCard: {
-    borderRadius: Spacing.three,
-    borderWidth: 1,
-    gap: Spacing.two,
-    padding: Spacing.three,
-  },
-  inlineButton: {
-    alignSelf: 'flex-start',
-    borderRadius: Spacing.five,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-  },
-  verdictCard: {
-    borderRadius: Spacing.three,
-    borderWidth: 1,
-    gap: Spacing.two,
-    padding: Spacing.three,
-  },
+  errorCard: { borderRadius: Spacing.three, borderWidth: 1, gap: Spacing.two, padding: Spacing.three },
+  verdictCard: { borderRadius: Spacing.three, borderWidth: 1, gap: Spacing.two, padding: Spacing.three },
   verdictHeader: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -634,26 +534,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textTransform: 'uppercase',
   },
-  confidenceText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  verdictTitle: {
-    fontSize: 26,
-    lineHeight: 32,
-  },
-  adviceText: {
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  footer: {
-    gap: Spacing.two,
-  },
-  navigationRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
+  confidenceText: { fontSize: 14, lineHeight: 20 },
+  verdictTitle: { fontSize: 22, lineHeight: 28 },
+  adviceText: { fontSize: 18, fontWeight: '600', lineHeight: 28 },
+  footer: { gap: Spacing.two },
+  navigationRow: { flexDirection: 'row', gap: Spacing.two },
   secondaryButton: {
     flex: 1,
     borderRadius: Spacing.two,
@@ -666,9 +551,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
   },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
+  primaryButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 16 },
 });
