@@ -1,6 +1,6 @@
 import { CosmosClient, Container, SqlQuerySpec } from "@azure/cosmos";
 
-const DEFAULT_DB_NAME = process.env.COSMOS_DB_NAME ?? "sous-db";
+const DEFAULT_DB_NAME = process.env.COSMOS_DB_NAME ?? "suechef-db";
 const RECIPES_CONTAINER_NAME = process.env.COSMOS_RECIPES_CONTAINER ?? "recipes";
 const SESSIONS_CONTAINER_NAME = process.env.COSMOS_SESSIONS_CONTAINER ?? "sessions";
 const VISITORS_CONTAINER_NAME = process.env.COSMOS_VISITORS_CONTAINER ?? "visitors";
