@@ -141,10 +141,31 @@ Document baseline and optimized numbers in `docs/prompt-notes.md`.
 
 ---
 
+### P7 — Personalized recipe generation prompt (2h)
+**File:** `server/src/lib/prompts/personalize.js`
+
+At the end of a session, Sous generates a personalized recipe based on everything it observed. Export `buildPersonalizePrompt({ originalRecipe, turns, adjustments })` where:
+- `originalRecipe` — the base recipe with steps
+- `turns` — array of `{ stepId, verdict, advice, actualDurationMinutes }` from the session
+- `adjustments` — any manual notes the cook logged ("added extra flour", "oven ran hot")
+
+The prompt should instruct the model to rewrite the recipe incorporating what it learned:
+- Adjust step timings to match what actually worked for this cook
+- Add personal notes where verdicts flagged issues ("your oven runs hot — check bread 5 min early")
+- Keep the output as a clean, readable recipe (not a session report)
+
+Returns: `{ title, personalizedSteps[], notes }` — strict JSON.
+
+Test against a simulated session with a mix of `on_track` and `adjust` turns. The output should read like a recipe someone would actually save and reuse.
+
+✅ Done when: function produces a clean personalized recipe JSON from a test session; timing adjustments and personal notes are present.
+
+---
+
 ## Kickoff prompt (paste this to your AI assistant to get started)
 
 > I'm doing prompt engineering for a hackathon app called Sous — a visual AI sous-chef. My job is to design the prompts that make it work. No app or server code involved — I work in `server/src/lib/prompts/` and test directly against Azure OpenAI.
 >
-> The core task: given a cooking step's expected visual state and a photo of what the cook actually has, the model should return a structured verdict — `on_track`, `adjust`, or `done` — plus specific, actionable advice. The response must be strict JSON: `{ "verdict": "...", "advice": "...", "confidence": 0.0–1.0 }`.
+> Core prompts: (1) vision assessment — given a step's expected visual state and a photo, return a structured verdict (on_track / adjust / done) + advice in strict JSON; (2) rescue — given a problem description and step context, return a specific recovery path; (3) personalized recipe generation — given the original recipe + a session's turn history (verdicts, actual timings, adjustments), rewrite the recipe customized to this cook's kitchen.
 >
-> Start with Task P1: create `server/src/lib/prompts/assess.js` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API. Test it with a hardcoded call.
+> Start with Task P1: create `server/src/lib/prompts/assess.js` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API.

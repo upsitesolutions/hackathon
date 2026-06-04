@@ -28,25 +28,28 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 
 ## How It Works
 
-1. **Pick a recipe** (or paste/snap one in). Sous breaks it into steps, each with an *expected visual state*.
-2. **Cook with the camera on.** At any step, capture a photo (or short stream) of your pan / bowl / board.
-3. **Sous assesses** the real state vs. the intended state using a vision model — consistency, color, browning, sear, reduction, size.
+1. **Pick a recipe.** Sous breaks it into steps, each with a timer and an *expected visual state*.
+2. **Sous runs the clock.** At each checkpoint, Sous prompts you: *"Time to check your dough — snap a photo."* You don't have to remember to check in; Sous tells you when.
+3. **Snap a photo.** Point your camera at what you're cooking. Sous assesses the real state vs. the intended state — consistency, color, browning, sear, reduction, size.
 4. **Sous advises.** It confirms you're on track, or gives a concrete corrective action: lower the heat, add liquid, keep going, you're done — pull it now.
-5. **Rescue mode.** Stuck? "My caramel seized," "this is too salty," "the dough won't come together" → Sous diagnoses and gives a recovery path.
+5. **Rescue mode.** Stuck? "My caramel seized," "the dough won't come together" → describe the problem, Sous diagnoses and gives a recovery path.
+6. **Your personalized recipe.** At the end of the session, Sous generates a recipe customized to *your* kitchen — adjusted for how your dough behaved, how long your oven actually took, what worked and what didn't. Next time you make it, start from your version, not the generic one.
 
 ## Core Features
 
 ### MVP (hackathon demo)
-- 📷 **Visual state check** — snap a photo at a step; vision model evaluates it against the step's target state.
+- ⏱️ **Timer-driven checkpoints** — Sous prompts you when it's time to check, based on the step's expected duration. You don't have to remember.
+- 📷 **Visual state check** — snap a photo at a checkpoint; vision model evaluates it against the step's target state.
 - 🧭 **Adaptive guidance** — plain-language "adjust / continue / you're done" verdict with a specific corrective action.
-- 📋 **Recipe scaffolding** — a recipe is parsed into steps, each annotated with the visual cue a chef would watch for.
+- 📋 **Recipe scaffolding** — steps annotated with the visual cue a chef would watch for and a suggested check time.
 - 🆘 **Rescue prompt** — describe what went wrong, get a recovery path.
+- 📄 **Personalized recipe export** — at the end, Sous generates a recipe adjusted to your session: your timings, your adjustments, your kitchen.
 
 ### Stretch
 - 🔁 Live streaming assessment (continuous, not snapshot).
 - 🗣️ Hands-free voice in/out (your hands are covered in flour).
-- 🧠 Learns your kitchen over time (your oven runs hot, you like things browner) — persisted per user.
-- 🌡️ Pull in timers/temps and trigger them from visual cues.
+- 🧠 Learns your kitchen over time across multiple sessions — persistent calibration.
+- 🌡️ Integrate smart thermometers; trigger checkpoints from temperature reads.
 
 ## Architecture
 
@@ -78,9 +81,12 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 ## Data Model (first pass)
 
 - **Recipe** — title, ingredients, ordered `steps[]`.
-- **Step** — instruction, `expectedVisualState` (what a chef watches for), `commonFailures[]`.
-- **Session** — user, recipe, timeline of `{stepId, image, verdict, advice}` turns.
-- **UserPrefs** *(stretch)* — learned calibrations (oven bias, doneness preference).
+- **Step** — instruction, `expectedVisualState`, `commonFailures[]`, `checkpointMinutes` (when Sous should prompt for a photo).
+- **Session** — per-cook run: `{ recipeId, startedAt, turns[], adjustments[], personalizedRecipe }`.
+- **Turn** — one checkpoint event: `{ stepId, promptedAt, imageUrl, verdict, advice, actualDurationMinutes }`.
+- **Adjustment** — a deviation noted during the session: `{ stepId, type, description }` — e.g. "added extra flour", "oven ran hot, reduced time by 5min".
+- **PersonalizedRecipe** — generated at session end from the turn history: modified step instructions, adjusted timings, notes specific to this cook's kitchen. Stored on the session so it can be retrieved or shared.
+- **UserPrefs** *(stretch)* — learned calibrations that persist across sessions (oven bias, preferred doneness).
 
 ## Demo Plan (what we show the judges)
 

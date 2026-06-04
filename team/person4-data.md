@@ -49,17 +49,47 @@ The recipe content you write (`expectedVisualState` and `commonFailures` per ste
   commonFailures: [
     "Still shaggy and tearing — needs more kneading",
     "Dense and tight — over-kneaded, stop now"
-  ]
+  ],
+  checkpointMinutes: 10   // ← when Sous prompts for a photo during this step
 }
 
-// Session turn — stored in `sessions` container, partition key: /sessionId
+// Session document — stored in `sessions` container, partition key: /sessionId
 {
   sessionId: "...",
   recipeId: "...",
-  stepId: "...",
+  startedAt: "ISO timestamp",
+  turns: [Turn],           // checkpoint events during the session
+  adjustments: [Adjustment], // manual notes the cook logged
+  personalizedRecipe: {...}  // generated at session end, null until then
+}
+
+// Turn (embedded in session)
+{
+  stepId: "knead",
+  promptedAt: "ISO timestamp",   // when the timer fired
   verdict: "adjust",
-  advice: "...",
-  timestamp: "..."
+  advice: "Still tearing — 3 more minutes, add flour",
+  actualDurationMinutes: 13      // how long the step actually took
+}
+
+// Adjustment (embedded in session) — manual notes
+{
+  stepId: "knead",
+  type: "ingredient" | "timing" | "technique",
+  description: "Added extra tablespoon of flour — dough was sticky"
+}
+
+// PersonalizedRecipe (embedded in session after generation)
+{
+  title: "My Rustic Bread (adjusted for my kitchen)",
+  personalizedSteps: [
+    {
+      stepId: "knead",
+      instruction: "Knead for 12–13 minutes (your dough tends to need extra time).",
+      note: "Add a tablespoon of flour if it's sticking — your kitchen runs humid."
+    }
+  ],
+  notes: "Your oven runs hot — reduce final bake temp by 10°F next time."
 }
 ```
 
@@ -88,7 +118,11 @@ Install `@azure/cosmos`. Export:
 - `getRecipes()` — all items from `recipes` container
 - `getRecipe(id)` — one recipe with embedded steps
 - `getStep(recipeId, stepId)` — single step from recipe's steps array
-- `upsertSession(turn)` — write session turn to `sessions` container
+- `createSession(sessionId, recipeId)` — create a new session document
+- `appendTurn(sessionId, turn)` — push a turn onto `session.turns[]`
+- `appendAdjustment(sessionId, adjustment)` — push an adjustment note
+- `savePersonalizedRecipe(sessionId, recipe)` — write the generated recipe onto the session
+- `getSession(sessionId)` — fetch the full session (for recipe export)
 
 Add 5s timeout and basic retry on 429 (Cosmos DB rate limit).
 
@@ -101,14 +135,14 @@ Add 5s timeout and basic retry on 429 (Cosmos DB rate limit).
 
 6–8 steps. Each step needs a rich `expectedVisualState` and 2–3 `commonFailures`. Reference:
 
-| Step | expectedVisualState | commonFailures |
-|------|--------------------|-----------------------|
-| Mix | "Shaggy, just comes together. Slightly sticky, no dry patches." | "Too dry — crumbles apart", "Too wet — sticks to bowl with no structure" |
-| Knead | "Smooth, elastic ball. Windowpane test: stretches thin without tearing." | "Still shaggy and tearing — under-kneaded", "Dense and tight — over-kneaded" |
-| First proof | "Doubled in size, domed top. Finger poke springs back slowly." | "No rise — under-proofed or dead yeast", "Collapsed — over-proofed" |
-| Shape | "Taut surface, neat seam underneath." | "Loose, slack surface — needs more tension" |
-| Bake (early) | "Oven spring, starting to colour on top." | "No oven spring — under-proofed going in" |
-| Bake (final) | "Deep golden-brown crust. Hollow thud when tapped on the bottom." | "Pale and soft — needs more time", "Cracked sides — oven too hot" |
+| Step | checkpointMinutes | expectedVisualState | commonFailures |
+|------|:-----------------:|--------------------|-----------------------|
+| Mix | 3 | "Shaggy, just comes together. Slightly sticky, no dry patches." | "Too dry — crumbles apart", "Too wet — sticks to bowl with no structure" |
+| Knead | 10 | "Smooth, elastic ball. Windowpane test: stretches thin without tearing." | "Still shaggy and tearing — under-kneaded", "Dense and tight — over-kneaded" |
+| First proof | 45 | "Doubled in size, domed top. Finger poke springs back slowly." | "No rise — under-proofed or dead yeast", "Collapsed — over-proofed" |
+| Shape | 5 | "Taut surface, neat seam underneath." | "Loose, slack surface — needs more tension" |
+| Bake (early) | 15 | "Oven spring, starting to colour on top." | "No oven spring — under-proofed going in" |
+| Bake (final) | 30 | "Deep golden-brown crust. Hollow thud when tapped on the bottom." | "Pale and soft — needs more time", "Cracked sides — oven too hot" |
 
 ✅ Done when: recipe document with ≥6 steps is in Cosmos DB, each with `expectedVisualState` and ≥2 `commonFailures`.
 
@@ -119,12 +153,12 @@ Add 5s timeout and basic retry on 429 (Cosmos DB rate limit).
 
 4–5 steps:
 
-| Step | expectedVisualState | commonFailures |
-|------|--------------------|-----------------------|
-| Prep | "Room temp, surface completely dry. No moisture sheen." | "Wet surface — will steam not sear" |
-| Preheat pan | "Pan smoking, oil just past shimmer." | "Oil pooling, not smoking — too cold", "Burning oil — too hot, reduce heat" |
-| First sear | "Deep mahogany crust forming. Fat rendering at edges." | "Pale/grey — pan too cold or moved too early", "Black crust — heat too high" |
-| Finish | "Sides browned halfway up. Firm but with slight give." | "Still raw on sides — needs more time", "Rock hard — overcooked" |
+| Step | checkpointMinutes | expectedVisualState | commonFailures |
+|------|:-----------------:|--------------------|-----------------------|
+| Prep | 2 | "Room temp, surface completely dry. No moisture sheen." | "Wet surface — will steam not sear" |
+| Preheat pan | 3 | "Pan smoking, oil just past shimmer." | "Oil pooling, not smoking — too cold", "Burning oil — too hot, reduce heat" |
+| First sear | 3 | "Deep mahogany crust forming. Fat rendering at edges." | "Pale/grey — pan too cold or moved too early", "Black crust — heat too high" |
+| Finish | 4 | "Sides browned halfway up. Firm but with slight give." | "Still raw on sides — needs more time", "Rock hard — overcooked" |
 
 ✅ Done when: recipe in Cosmos DB with ≥4 steps and rich visual states.
 

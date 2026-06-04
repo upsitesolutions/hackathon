@@ -101,10 +101,38 @@ Connect: "Check it" → CameraCapture → POST /assess → AssessmentCard. Loadi
 
 ---
 
+### M7 — Checkpoint timer (2h)
+**File:** `app/src/components/checkpoint-timer.tsx`
+
+**This is a core UX feature — Sous tells you when to check, you don't have to remember.**
+
+Each step has a `checkpointMinutes` value. When a step becomes active, start a countdown timer. When it fires, show a prominent prompt: *"Time to check your [proof / sear / caramel] — tap to snap a photo."* This should feel like a gentle nudge, not an alarm.
+
+- Use `expo-notifications` for a local notification if the app is backgrounded.
+- In-app: show a pulsing banner at the top of the step viewer.
+- Tapping the banner opens the camera (M3) directly.
+
+✅ Done when: timer fires at `checkpointMinutes`, in-app banner appears, tapping it opens the camera.
+
+---
+
+### M8 — Personalized recipe screen (1.5h)
+**File:** `app/src/app/recipe-result.tsx`
+
+At the end of a session (after the final step), show a "Your Recipe" screen. Fetch `GET /api/sessions/:id/recipe` — the server returns a personalized recipe generated from the session. Display it as a clean, readable recipe card with the adjusted instructions and timing notes.
+
+Include a share button (use `expo-sharing` to export as text). This is the takeaway the user keeps.
+
+✅ Done when: screen displays a personalized recipe fetched from the session; share button exports the text.
+
+---
+
 ## Kickoff prompt (paste this to your AI assistant to get started)
 
 > I'm building the mobile frontend for a hackathon app called Sous — a real-time visual AI sous-chef. The stack is Expo / React Native with expo-router and TypeScript. The app is in the `app/` directory.
 >
-> My job is to build: a recipe list screen, a step-by-step viewer that shows what the food should look like at each step, a camera capture component that sends a photo to an API and gets back a verdict (on_track / adjust / done), an assessment result card that displays the verdict and advice, and a rescue screen for when something goes wrong.
+> My job: recipe list screen, step-by-step viewer, checkpoint timer that prompts the user when it's time to take a photo, camera capture that POSTs to an API and gets back a verdict, assessment result card, rescue screen, and a personalized recipe screen shown at the end of a session.
+>
+> Key product behavior: Sous is proactive — it tells the user when to check their food based on a per-step timer (`checkpointMinutes`). The user doesn't tap "check it" on their own schedule; Sous prompts them.
 >
 > The API runs at `http://localhost:7071`. I should use mock data until it's ready. Start with Task M1: build `app/src/app/index.tsx` as a recipe list screen using a local MOCK_RECIPES constant.
