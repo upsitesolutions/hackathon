@@ -131,6 +131,19 @@ Have these staged on a device or in the app before presenting:
 | Steak | Sear | Deep mahogany crust | `done` — flip it now |
 | Onions | Caramelize | Black, burned edges | rescue → recovery advice |
 
+## GitHub Copilot on this project
+
+This project is built with GitHub Copilot as the primary coding assistant — fitting for a Microsoft hackathon where the demo itself uses Azure OpenAI.
+
+| Stream | Copilot fit | What it's good for here |
+|--------|------------|-------------------------|
+| Person 2 — Azure Functions | ⭐⭐⭐ Best fit | `@azure/functions` v4 triggers, `@azure/cosmos` SDK patterns, `host.json` CORS, URL fetch + HTML strip |
+| Person 4 — Cosmos DB client | ⭐⭐⭐ Strong | `@azure/cosmos` CRUD, retry/backoff boilerplate, consistent export patterns |
+| Person 1 — Expo / RN | ⭐⭐ Strong | `FlatList`, `expo-camera`, `expo-router`, `expo-notifications` boilerplate |
+| Person 3 — Prompts | ⭐ Scaffolding only | JS function scaffolding and `validateVerdict()` logic — **not** the prompt text itself, which requires cooking domain knowledge Copilot lacks |
+
+**Pitch note for judges:** The Azure Functions backend and Cosmos DB layer were scaffolded with GitHub Copilot. The vision and enrichment models run on Azure OpenAI GPT-4o. The whole stack is Microsoft.
+
 ## Why Now
 
 Multimodal models can finally judge *physical state from an image* well enough to give cooking-grade advice. The sensory layer that recipes always discarded is now machine-readable. That's the unlock.
@@ -176,6 +189,20 @@ Provisions the Cosmos DB account and containers. Writes the DB client wrapper. S
 **Never touches:** `app/`, prompt files, Azure Functions handlers
 
 ---
+
+### File ownership map — zero overlap
+
+| File / directory | Owner | Nobody else touches |
+|-----------------|-------|-------------------|
+| `app/` | Person 1 | ✓ |
+| `server/src/functions/` | Person 2 | ✓ |
+| `server/src/lib/openai-client.js` | Person 2 | ✓ |
+| `server/package.json` + `package-lock.json` | Person 2 | ✓ (collect deps from 3 & 4 at start, install once) |
+| `server/.env.example` | Person 2 creates | Person 4 fills local `.env` only — never edits `.env.example` |
+| `server/src/lib/prompts/` | Person 3 | ✓ |
+| `server/src/lib/db.js` | Person 4 | ✓ |
+| `database/` | Person 4 | ✓ |
+| `docs/api-contract.md` | Person 2 writes day 1 | Everyone reads, nobody edits mid-session |
 
 ### The one interface to agree on before anyone writes code
 

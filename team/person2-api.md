@@ -5,14 +5,44 @@ Build the Azure Functions backend that wires the mobile app, the vision model, a
 
 ## You own
 ```
-server/src/functions/    ← HTTP trigger functions
-server/src/lib/          ← openai-client.js, db.js (from Person 4)
+server/src/functions/          ← all HTTP trigger functions (yours alone)
+server/src/lib/openai-client.js  ← Azure OpenAI client (yours alone)
 server/host.json
-server/package.json
-server/.env.example
+server/package.json            ← you manage this, see dependency note below
+server/.env.example            ← you create it; Person 4 adds Cosmos vars
+docs/api-contract.md           ← you write this on day 1
 ```
 
+`server/src/lib/prompts/` belongs to Person 3. `server/src/lib/db.js` belongs to Person 4. You `require()` both but never edit them.
+
 You never touch `app/` or `database/`.
+
+## ⚠️ Dependency coordination (do this at the start)
+
+You own `server/package.json`. Before anyone writes code, collect the full dependency list from all three server-side people and install everything in one shot:
+
+```bash
+# Person 2 needs:
+npm install @azure/functions openai
+
+# Person 3 needs: (none beyond openai — already installed)
+
+# Person 4 needs:
+npm install @azure/cosmos
+
+# Install all at once so package.json is only touched once:
+npm install @azure/functions openai @azure/cosmos
+```
+
+Commit `package.json` and `package-lock.json` immediately. Nobody else touches these files.
+
+## ⚠️ .env.example coordination
+
+You create `server/.env.example` in task A1. Leave a placeholder line for Cosmos DB vars:
+```
+COSMOS_CONNECTION_STRING=   # filled in by Person 4
+```
+Person 4 fills in the actual value in their local `.env` — they do not edit `.env.example`.
 
 ## You do NOT need to know
 - How the Expo app is built
@@ -140,6 +170,23 @@ Every handler: try/catch, return `{ status: 400, jsonBody: { error: '...' } }` o
 Add CORS so the Expo web preview can call the Functions host. Verify `func azure functionapp publish` deploys cleanly with env vars set as Application Settings. Document the deploy command.
 
 ✅ Done when: app reaches the deployed Azure endpoints without CORS errors.
+
+---
+
+## GitHub Copilot tips for your stream
+
+**This is the highest-Copilot stream on the project.** Everything you build is well-documented Azure SDK work.
+
+**Use Copilot heavily for:**
+- Azure Functions v4 `app.http()` trigger boilerplate — type the function name and Copilot fills the handler skeleton.
+- `@azure/cosmos` client patterns — container reads, upserts, partition key usage. Copilot knows the SDK well.
+- URL fetch + HTML strip (for the enrich endpoint) — standard Node.js, Copilot completes it from a comment.
+- Try/catch error response patterns — write `// return 400 if missing fields` and Copilot writes the check.
+- `host.json` CORS config — just start typing and it'll complete the allowed origins block.
+
+**Don't rely on Copilot for:**
+- The content hash caching logic for enriched recipes — think through the key design yourself (hash of trimmed source text is fine).
+- Wiring Person 3's prompt module — Copilot won't know the exact export shape until the file exists; import it manually.
 
 ---
 

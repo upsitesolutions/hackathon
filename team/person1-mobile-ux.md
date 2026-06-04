@@ -130,6 +130,19 @@ Include a share button (use `expo-sharing` to export as text). This is the takea
 
 ---
 
+## GitHub Copilot tips for your stream
+
+**Use Copilot heavily for:**
+- Expo component boilerplate — `FlatList`, `expo-camera`, `expo-router` routes, `expo-notifications`. Copilot knows these APIs cold; just start typing the component name.
+- Navigation wiring — Copilot completes expo-router `<Link>` and `router.push()` patterns almost automatically.
+- Loading/error state patterns — standard React Native patterns Copilot will fill in from a comment.
+
+**Don't rely on Copilot for:**
+- The mock recipe data shape — you need to match the exact API contract schema, so write that by hand from the contract doc.
+- Timer UX decisions — Copilot will suggest a generic countdown; the cooking-specific UX (pulsing banner, notification text) needs your judgment.
+
+---
+
 ## Kickoff prompt (paste this to your AI assistant to get started)
 
 > I'm building the mobile frontend for a hackathon app called Sous — a real-time visual AI sous-chef. The stack is Expo / React Native with expo-router and TypeScript. The app is in the `app/` directory.
