@@ -1,0 +1,65 @@
+Azure Functions Deployment Instructions
+======================================
+
+Prerequisites
+-------------
+1) Azure account with permission to create resources
+2) Azure CLI installed: https://learn.microsoft.com/cli/azure/install-azure-cli
+3) Azure Functions Core Tools v4 installed
+4) Node.js 20+ installed
+5) Azurite installed for local storage emulation
+
+Local Setup and Test
+--------------------
+1) Open terminal in the functions folder
+2) Install dependencies:
+   npm install
+3) Build TypeScript:
+   npm run build
+4) Start Azurite in a separate terminal:
+   azurite --location .azurite --silent --debug .azurite/debug.log
+5) Start the local function host:
+   npm start
+6) Test endpoint:
+   http://localhost:7071/api/dummy
+   Optional query param:
+   http://localhost:7071/api/dummy?name=Akiva
+7) Optional CLI test:
+   curl "http://localhost:7071/api/dummy?name=Akiva"
+
+Deploy to Azure (Consumption plan)
+----------------------------------
+1) Login to Azure:
+   az login
+
+2) Set variables (replace values):
+   RESOURCE_GROUP=hackathon-rg
+   STORAGE_ACCOUNT=hackathonfuncsa
+   FUNCTION_APP_NAME=hackathon-functions-app
+   LOCATION=eastus
+
+3) Create resource group:
+   az group create --name $RESOURCE_GROUP --location $LOCATION
+
+4) Create storage account:
+   az storage account create --name $STORAGE_ACCOUNT --location $LOCATION --resource-group $RESOURCE_GROUP --sku Standard_LRS
+
+5) Create function app (Node.js 20):
+   az functionapp create --resource-group $RESOURCE_GROUP --consumption-plan-location $LOCATION --runtime node --runtime-version 20 --functions-version 4 --name $FUNCTION_APP_NAME --storage-account $STORAGE_ACCOUNT
+
+6) Publish function app from this folder:
+   func azure functionapp publish $FUNCTION_APP_NAME --typescript
+
+7) Verify deployed function:
+   https://$FUNCTION_APP_NAME.azurewebsites.net/api/dummy
+
+Post-Deploy Configuration
+-------------------------
+Set app settings as needed:
+az functionapp config appsettings set --name $FUNCTION_APP_NAME --resource-group $RESOURCE_GROUP --settings KEY=value
+
+Notes
+-----
+- Keep secrets out of source control.
+- Use environment variables and Azure App Settings for runtime configuration.
+- If using Azurite locally, keep AzureWebJobsStorage=UseDevelopmentStorage=true in local.settings.json.
