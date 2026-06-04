@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -66,11 +67,18 @@ export default function HomeScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
           <ThemedView style={styles.header}>
-            <ThemedText type="title" style={styles.appTitle}>
-              Sous
-            </ThemedText>
+            <ThemedView style={styles.brandRow}>
+              <Image
+                source={require('@/assets/images/SueChef_clean.png')}
+                contentFit="contain"
+                style={styles.logo}
+              />
+              <ThemedText type="title" style={styles.appTitle}>
+                SueChef
+              </ThemedText>
+            </ThemedView>
             <ThemedText type="default" themeColor="textSecondary" style={styles.subtitle}>
-              Tell Sous what you&apos;re making or paste the recipe you have.
+              Tell SueChef what you&apos;re making or paste the recipe you have.
             </ThemedText>
           </ThemedView>
 
@@ -184,10 +192,22 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Spacing.four,
     paddingBottom: Spacing.five,
-    gap: Spacing.one,
+    gap: Spacing.two,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    borderRadius: Spacing.three,
   },
   appTitle: {
     letterSpacing: -1,
+    fontSize: 40,
+    lineHeight: 44,
   },
   subtitle: {
     marginTop: Spacing.one,
