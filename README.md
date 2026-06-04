@@ -85,11 +85,106 @@ Maps directly onto what's already scaffolded in this repo.
 
 ## Demo Plan (what we show the judges)
 
-Make bread (or sear a steak — fast and visual). Deliberately go off-recipe — too-wet dough, or an under-heated pan — and let Sous **catch it and correct it on camera**. The "it saw the mistake a recipe never could" moment is the pitch.
+The demo is scripted around **pre-selected photos** — not live cooking. This keeps it reliable and lets us control the "wow" moment.
+
+### The pitch in one sentence
+> *"You show it a photo of what you're cooking, and it tells you exactly what's wrong and how to fix it — something no recipe has ever been able to do."*
+
+### Demo script (~3 minutes)
+
+**Scene 1 — the problem (30s)**
+Show the bread step that says "knead until smooth and elastic." Show the recipe. Ask: "how do you know when it's right?" No recipe tells you.
+
+**Scene 2 — Sous catches a mistake (90s)**
+- Navigate to the "Knead" step in the app. The expected visual state is shown: *"smooth, elastic ball — passes the windowpane test."*
+- Snap (or load) a photo of **under-kneaded dough** — shaggy, tearing, not smooth.
+- Sous returns: `adjust` → *"Still tearing — needs 3 more minutes. It's also reading a little wet; add a tablespoon of flour before continuing."*
+- Now load a **correctly kneaded** photo. Sous returns: `done` → *"Good windowpane stretch, smooth surface — you're ready to proof."*
+- **That's the moment.** It saw what the recipe couldn't describe.
+
+**Scene 3 — rescue mode (45s)**
+- Switch to the steak recipe, "Sear" step.
+- Snap a photo of a **pale, grey-bottomed steak** (classic cold-pan mistake).
+- Sous returns: `adjust` → *"No sear crust — pan wasn't hot enough. Pull the steak, get the pan smoking, then go again. Pat the surface dry first."*
+
+**Scene 4 — close (15s)**
+Every cooking mistake has a visual signature. Sous reads it. Recipes never could.
+
+### Photos to prepare in advance
+Have these staged on a device or in the app before presenting:
+
+| Recipe | Step | Photo type | Expected verdict |
+|--------|------|------------|-----------------|
+| Bread | Knead | Shaggy, tearing dough | `adjust` — keep kneading, add flour |
+| Bread | Knead | Smooth, elastic ball | `done` — ready to proof |
+| Bread | Proof | Flat, no rise | `adjust` — under-proofed or dead yeast |
+| Bread | Proof | Domed, doubled | `on_track` — looking good |
+| Steak | Sear | Pale grey bottom | `adjust` — pan too cold |
+| Steak | Sear | Deep mahogany crust | `done` — flip it now |
+| Onions | Caramelize | Black, burned edges | rescue → recovery advice |
 
 ## Why Now
 
 Multimodal models can finally judge *physical state from an image* well enough to give cooking-grade advice. The sensory layer that recipes always discarded is now machine-readable. That's the unlock.
+
+---
+
+## Team Structure
+
+Four streams with hard ownership boundaries — no one needs to read another stream's code to make progress. The only shared contract is the API shape agreed up front (see TASKS.md).
+
+### Person 1 — Mobile / UX
+**Owns:** everything in `app/`
+
+Builds the Expo app: recipe list, step viewer, camera capture, assessment card, rescue screen. Works against a mock API response until the server is ready, then swaps one constant (`API_BASE_URL` in `app/src/constants/api.ts`) to point at the real server.
+
+**Never touches:** `server/`, `database/`
+
+---
+
+### Person 2 — API / Orchestration
+**Owns:** `server/src/functions/` (Azure Functions HTTP triggers)
+
+Writes the HTTP trigger functions: `/assess`, `/rescue`, `/recipes`. Wires the OpenAI client and Cosmos DB client together. Defines and enforces the API contract (request/response shapes). Runs `func start` locally for testing.
+
+**Never touches:** `app/`, prompt internals, Cosmos DB provisioning
+
+---
+
+### Person 3 — AI / Prompt Engineering
+**Owns:** `server/src/lib/prompts/`
+
+Designs and iterates the vision prompt (`assess.js`), verdict schema validation (`verdict-schema.js`), and rescue prompt (`rescue.js`). Works entirely in isolation — can test prompts directly against Azure OpenAI without running the full server. Hands the finished prompt module to Person 2 to wire in.
+
+**Never touches:** `app/`, routes, Cosmos DB
+
+---
+
+### Person 4 — Data / Recipes
+**Owns:** `database/`, `server/src/lib/db.js`, Cosmos DB provisioning
+
+Provisions the Cosmos DB account and containers. Writes the DB client wrapper. Seeds the three demo recipes (bread, steak, caramelized onions) with rich `expectedVisualState` and `commonFailures` per step — this is the content that makes the demo land. Hands the seeded container credentials and `db.js` to Person 2.
+
+**Never touches:** `app/`, prompt files, Azure Functions handlers
+
+---
+
+### The one interface to agree on before anyone writes code
+
+30 minutes at the start. Agree on:
+
+```json
+POST /assess   { "recipeId": "...", "stepId": "...", "imageBase64": "..." }
+               → { "verdict": "on_track|adjust|done", "advice": "...", "confidence": 0.0–1.0 }
+
+POST /rescue   { "recipeId": "...", "stepId": "...", "problem": "..." }
+               → { "advice": "..." }
+
+GET  /recipes  → [{ "id": "...", "title": "...", "description": "..." }]
+GET  /recipes/:id → { "id", "title", "steps": [{ "stepId", "instruction", "expectedVisualState", "commonFailures" }] }
+```
+
+Pin this in `docs/api-contract.md`. Persons 1 and 2 both build to it. No changes without a team check-in.
 
 ---
 
