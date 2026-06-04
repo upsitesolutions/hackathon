@@ -15,6 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { enrichMockRecipeFromInput } from '@/constants/mock-recipes';
 import { useTheme } from '@/hooks/use-theme';
+import { createSession } from '@/lib/api';
 
 const QUICK_START_PROMPTS = [
   "I'm making salmon",
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const [sourceText, setSourceText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const trimmedSourceText = sourceText.trim();
   const canSubmit = trimmedSourceText.length > 0 && !isLoading;
@@ -38,21 +40,25 @@ export default function HomeScreen() {
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 900));
-
       const recipe = enrichMockRecipeFromInput(normalizedInput);
       const initialStep = recipe.steps[0];
 
       if (!initialStep) {
+        setErrorMessage('This recipe does not include any steps yet. Try another dish.');
         return;
       }
 
+      const session = await createSession(recipe.id);
+
       router.push({
         pathname: '/recipe/[id]',
-        params: { id: recipe.id, stepId: initialStep.stepId },
+        params: { id: recipe.id, sessionId: session.sessionId, stepId: initialStep.stepId },
       });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -100,8 +106,8 @@ export default function HomeScreen() {
             />
 
             <ThemedText themeColor="textSecondary" style={styles.helperText}>
-              Start with a dish name, a rough idea, or full recipe text. The mock flow will map it
-              to a cooking session until the API is live.
+              Start with a dish name, a rough idea, or full recipe text. Sous keeps the mock recipe
+              selection locally, then starts a real API session.
             </ThemedText>
 
             <ThemedView type="backgroundElement" style={styles.quickStartSection}>
@@ -128,6 +134,31 @@ export default function HomeScreen() {
               </ThemedView>
             </ThemedView>
           </ThemedView>
+
+          {errorMessage ? (
+            <ThemedView
+              accessibilityRole="alert"
+              type="backgroundElement"
+              style={[styles.errorCard, { borderColor: theme.accent }]}>
+              <ThemedText type="smallBold">Couldn&apos;t start cooking</ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.helperText}>
+                {errorMessage}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!trimmedSourceText || isLoading}
+                onPress={() => void handleCook(trimmedSourceText)}
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  {
+                    backgroundColor: pressed ? theme.backgroundSelected : theme.background,
+                    opacity: trimmedSourceText && !isLoading ? 1 : 0.6,
+                  },
+                ]}>
+                <ThemedText type="smallBold">Try again</ThemedText>
+              </Pressable>
+            </ThemedView>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
@@ -222,6 +253,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
+  errorCard: {
+    borderRadius: Spacing.three,
+    borderWidth: 1,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    borderRadius: Spacing.five,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
   cookButton: {
     borderRadius: Spacing.two,
     paddingVertical: Spacing.two + 4,
@@ -241,3 +284,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Something went wrong while creating your SousAI session. Please try again.';
+}
