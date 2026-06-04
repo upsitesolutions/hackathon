@@ -50,31 +50,30 @@ The recipe becomes a **scaffold**, not a script. Sous supplies the chef's intuit
 
 ## Architecture
 
-Maps directly onto what's already scaffolded in this repo.
-
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  Expo / RN app  │ ──▶ │  Node/Express    │ ──▶ │  Vision model    │
-│  (app/)         │     │  API (server/)   │     │  (Azure OpenAI / │
-│  camera + chat  │ ◀── │  orchestration   │ ◀── │   GPT-4o vision) │
-└─────────────────┘     └────────┬─────────┘     └──────────────────┘
-                                 │
-                                 ▼
-                        ┌──────────────────┐
-                        │  Cosmos DB       │
-                        │  recipes, steps, │
-                        │  sessions, prefs │
-                        └──────────────────┘
+┌─────────────────┐     ┌──────────────────────┐     ┌──────────────────┐
+│  Expo / RN app  │ ──▶ │  Azure Functions v4  │ ──▶ │  Azure OpenAI    │
+│  (app/)         │     │  HTTP triggers       │     │  GPT-4o vision   │
+│  camera + UI    │ ◀── │  (server/src/        │ ◀── │                  │
+└─────────────────┘     │   functions/)        │     └──────────────────┘
+                        └──────────┬───────────┘
+                                   │
+                                   ▼
+                          ┌──────────────────┐
+                          │  Cosmos DB       │
+                          │  recipes, steps, │
+                          │  sessions        │
+                          └──────────────────┘
 ```
 
 | Layer | Tech | Lives in |
 |-------|------|----------|
 | Mobile client | Expo / React Native, expo-router | `app/` |
-| API / orchestration | Node + Express | `server/` |
-| Vision + reasoning | Azure OpenAI (GPT-4o vision) | called from `server/` |
-| Data | Azure Cosmos DB | `database/` |
+| API | Azure Functions v4 (Node.js) | `server/src/functions/` |
+| Vision + reasoning | Azure OpenAI (GPT-4o vision) | `server/src/lib/prompts/` |
+| Data | Azure Cosmos DB (NoSQL, serverless) | `database/` + `server/src/lib/db.js` |
 
-**Request flow:** app captures image + current step → POST to server → server builds a prompt pairing the image with the step's expected visual state → vision model returns a structured verdict (`on_track | adjust | done`) + advice → server persists the session turn to Cosmos DB → app renders the guidance.
+**Request flow:** app captures image + current step → HTTP trigger (`/assess`) → function loads step from Cosmos DB, builds vision prompt, calls GPT-4o → structured verdict (`on_track | adjust | done`) + advice returned → function writes session turn to Cosmos DB via output binding → app renders the guidance.
 
 ## Data Model (first pass)
 
@@ -190,14 +189,20 @@ Pin this in `docs/api-contract.md`. Persons 1 and 2 both build to it. No changes
 
 ## Getting Started
 
-Two independent npm packages:
-
 ```bash
 # Mobile app
 cd app && npm install && npx expo start
 
-# API server
-cd server && npm install && npm start
+# Azure Functions backend (requires Azure Functions Core Tools)
+npm install -g azure-functions-core-tools@4
+cd server && npm install && func start
+# Runs on http://localhost:7071
 ```
+
+Copy `.env.example` to `.env` in `server/` and fill in:
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_DEPLOYMENT`
+- `COSMOS_CONNECTION_STRING`
 
 See `.github/agents/` for the Cosmos DB, React Native, and Node backend agent guides.

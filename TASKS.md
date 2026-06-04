@@ -98,85 +98,81 @@ Add a "Help, something went wrong" button to the step viewer. On tap, open `app/
 
 ## Stream 2: API / Orchestration
 
-### Task A1: Azure OpenAI client module
+> **Runtime:** Azure Functions v4 (Node.js programming model). Local dev: `func start` (port 7071). Each endpoint is an HTTP trigger function in `server/src/functions/`.
+
+### Task A1: Azure OpenAI client + project scaffold
 **Owner:** API/Orchestration
 **Est:** 1h
 **Depends on:** none
 
-Create `server/lib/openai-client.js`. Initialize the `@azure/openai` (or `openai`) SDK using env vars: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` (GPT-4o vision deployment name). Export a single client instance. Add `.env.example` documenting the required vars. Smoke-test with a plain text ping to the API before moving on.
+Set up the Functions v4 project structure under `server/src/`. Create `server/src/lib/openai-client.js` — initialize the `openai` SDK with `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` from env. Export a single client instance. Add `server/.env.example` documenting all required vars. Verify `func start` boots without errors.
 
-**Done:** `node -e "require('./lib/openai-client')"` exits without error; a simple prompt round-trips successfully.
+**Done:** `func start` runs; a direct call to `openai-client.js` round-trips a plain text prompt successfully.
 
 ---
 
-### Task A2: POST /assess route
+### Task A2: assess HTTP trigger
 **Owner:** API/Orchestration
 **Est:** 2h
-**Depends on:** A1, P1 (assess prompt), D5 (Cosmos DB client)
+**Depends on:** A1, P1 (assess prompt), D2 (db.js)
 
-Create `server/routes/assess.js`. Accept `{ stepId, recipeId, imageBase64 }`. Steps:
-1. Load the step from Cosmos DB (fetch `expectedVisualState` and `commonFailures[]`).
-2. Build the vision prompt (import from prompt module — see P1).
-3. Call GPT-4o vision with the image and prompt.
-4. Parse and validate the verdict JSON.
-5. Persist the session turn via D5.
-6. Return the verdict to the client.
+Create `server/src/functions/assess.js`. Register as `app.http('assess', { methods: ['POST'], authLevel: 'anonymous', handler })`. Handler steps:
+1. Parse `{ recipeId, stepId, imageBase64 }` from request body — return 400 if any missing.
+2. Load step from Cosmos DB via `db.getStep(recipeId, stepId)`.
+3. Build vision prompt via `buildAssessPrompt(step)`.
+4. Call GPT-4o vision; validate verdict via `validateVerdict(raw)`.
+5. Write session turn to Cosmos DB via `db.upsertSession(turn)`.
+6. Return verdict JSON.
 
-Wire into `server/app.js` as `app.use('/assess', assessRouter)`.
-
-**Done:** `curl -X POST localhost:3000/assess` with a sample payload returns a valid verdict JSON.
+**Done:** `curl -X POST http://localhost:7071/api/assess` with a sample payload returns valid verdict JSON.
 
 ---
 
-### Task A3: POST /rescue route
+### Task A3: rescue HTTP trigger
 **Owner:** API/Orchestration
 **Est:** 1.5h
 **Depends on:** A1, P4 (rescue prompt)
 
-Create `server/routes/rescue.js`. Accept `{ recipeId, stepId, problem }`. Load step context from Cosmos DB, build the rescue prompt (P4), call GPT-4o (text only), return `{ advice: string }`. Wire into `server/app.js`.
+Create `server/src/functions/rescue.js`. Accept `{ recipeId, stepId, problem }` — return 400 if missing. Load step context from Cosmos DB, call `buildRescuePrompt`, call GPT-4o (text only), return `{ advice: string }`.
 
-**Done:** `curl -X POST localhost:3000/rescue -d '{"problem":"my caramel seized",...}'` returns a plausible recovery path.
+**Done:** `curl -X POST http://localhost:7071/api/rescue -d '{"problem":"my caramel seized",...}'` returns a specific recovery path.
 
 ---
 
-### Task A4: GET /recipes and GET /recipes/:id routes
+### Task A4: recipes HTTP triggers
 **Owner:** API/Orchestration
 **Est:** 1h
-**Depends on:** D2, D5
+**Depends on:** D2
 
-Create `server/routes/recipes.js`. Implement:
-- `GET /recipes` — return all recipe documents (id, title, description).
-- `GET /recipes/:id` — return a recipe with its full `steps[]` array.
+Create `server/src/functions/recipes.js`. Two triggers:
+- `GET /api/recipes` → `db.getRecipes()` → array of `{ id, title, description }`
+- `GET /api/recipes/{id}` → `db.getRecipe(id)` → recipe with full `steps[]`
 
-Wire into `server/app.js`. These are read-only; no auth needed for the demo.
+Read-only, no auth.
 
-**Done:** Both endpoints return seeded data. Mobile team can swap from mock to live.
+**Done:** Both endpoints return seeded data. Mobile team points `API_BASE_URL` at `http://localhost:7071` and swaps from mock.
 
 ---
 
-### Task A5: Request validation and error handling middleware
+### Task A5: Validation and error shape
 **Owner:** API/Orchestration
 **Est:** 1h
 **Depends on:** A2, A3
 
-Add body validation to /assess and /rescue routes: return 400 with a clear message if required fields are missing. Add a global error handler in `server/app.js` that returns JSON (not the current Jade error page) — the mobile client can't parse HTML. Keep it minimal: `{ error: message }` with appropriate HTTP status.
+In each function handler, wrap the body in try/catch. On missing fields: `return { status: 400, jsonBody: { error: '...' } }`. On unexpected errors: `return { status: 500, jsonBody: { error: 'internal error' } }`. No Jade, no HTML — the mobile client can only parse JSON.
 
-**Done:** Sending malformed requests returns JSON 400s; server errors return JSON 500s.
+**Done:** Malformed requests to all three endpoints return JSON 400s; injected throws return JSON 500s.
 
 ---
 
-### Task A6: Session persistence
+### Task A6: CORS + deployment config
 **Owner:** API/Orchestration
-**Est:** 1.5h
-**Depends on:** A2, D3 (Cosmos DB sessions container)
+**Est:** 1h
+**Depends on:** A2, A3, A4
 
-Inside the /assess handler (A2), after receiving the verdict, write a session turn document to Cosmos DB:
-```json
-{ "sessionId", "recipeId", "stepId", "verdict", "advice", "timestamp" }
-```
-Use upsert on `sessionId` as partition key. This enables the demo to replay what Sous said at each step. No user auth for MVP — use a hardcoded demo `sessionId` or generate one per app launch.
+Add CORS config to `server/host.json` so the Expo web preview can call the Functions host. Verify the Functions app can be deployed to Azure (`func azure functionapp publish`) with the env vars set as Application Settings. Document the deploy command in `server/README.md`.
 
-**Done:** After an assess call, a document appears in the sessions container in Cosmos DB portal.
+**Done:** Functions deploy to Azure without errors; Expo app can reach the deployed endpoints.
 
 ---
 
