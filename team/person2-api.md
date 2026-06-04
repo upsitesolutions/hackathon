@@ -192,7 +192,7 @@ Add CORS so the Expo web preview can call the Functions host. Verify `func azure
 
 ## Kickoff prompt (paste this to your AI assistant to get started)
 
-> I'm building the Azure Functions v4 (Node.js) backend for a hackathon app called Sous. The backend lives in `server/`. My job is to write HTTP trigger functions for /assess (vision check), /rescue (cooking recovery advice), and /recipes (recipe data).
+> I'm building the Azure Functions v4 (Node.js) backend for a hackathon app called Sous. The backend lives in `functions/`. My job is to write HTTP trigger functions for /assess (vision check), /rescue (cooking recovery advice), and /recipes (recipe data).
 >
 > The tech: Azure Functions v4 Node.js programming model (`@azure/functions`), Azure OpenAI GPT-4o vision, Azure Cosmos DB. I'll receive a prompt module from a teammate and a db module from another teammate — for now I'll stub them.
 >

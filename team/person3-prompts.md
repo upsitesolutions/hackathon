@@ -27,9 +27,9 @@ You work entirely in isolation. You test prompts directly against the Azure Open
 
 | File | Exports | When |
 |------|---------|-------|
-| `functions/src/lib/prompts/assess.js` | `buildAssessPrompt(step)` → messages array | Mid-session |
-| `functions/src/lib/prompts/rescue.js` | `buildRescuePrompt({ step, problem })` → messages array | Mid-session |
-| `functions/src/lib/prompts/verdict-schema.js` | `validateVerdict(rawString)` → verdict object or throws | As soon as P2 is done |
+| `functions/src/lib/prompts/assess.ts` | `buildAssessPrompt(step)` → messages array | Mid-session |
+| `functions/src/lib/prompts/rescue.ts` | `buildRescuePrompt({ step, problem })` → messages array | Mid-session |
+| `functions/src/lib/prompts/verdict-schema.ts` | `validateVerdict(rawString)` → verdict object or throws | As soon as P2 is done |
 
 ---
 
@@ -52,7 +52,7 @@ Your prompt must instruct the model to return **only this JSON, no prose wrapper
 ## Your tasks
 
 ### P0 — Recipe enrichment prompt (2h) ⚠️ do this first — it unblocks everyone
-**File:** `functions/src/lib/prompts/enrich.js`
+**File:** `functions/src/lib/prompts/enrich.ts`
 
 **This is the most important prompt in the product.** Any recipe the user pastes in — a URL they scraped, a photo of a cookbook, a rough list of steps — gets passed through this prompt and comes out as a fully structured recipe Sous can work with.
 
@@ -91,7 +91,7 @@ Test against at least 3 very different recipe inputs:
 ---
 
 ### P1 — Assess prompt, first draft (1.5h)
-**File:** `functions/src/lib/prompts/assess.js`
+**File:** `functions/src/lib/prompts/assess.ts`
 
 Export `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` that returns a messages array for the OpenAI chat API (system + user with image). The prompt must:
 - Show the model the step's expected visual state and common failure modes
@@ -106,7 +106,7 @@ Test directly with the OpenAI SDK — no server needed.
 ---
 
 ### P2 — Verdict schema validation (1h)
-**File:** `functions/src/lib/prompts/verdict-schema.js`
+**File:** `functions/src/lib/prompts/verdict-schema.ts`
 
 Export `validateVerdict(raw)`. Parses the model output string. Throws a typed error if:
 - JSON is malformed
@@ -142,7 +142,7 @@ Key demo scenarios to nail:
 ---
 
 ### P4 — Rescue prompt (1.5h)
-**File:** `functions/src/lib/prompts/rescue.js`
+**File:** `functions/src/lib/prompts/rescue.ts`
 
 Export `buildRescuePrompt({ stepInstruction, expectedVisualState, problem })`. Frame the model as an experienced chef diagnosing a specific problem. Provide the step context so advice is specific. Request a concise 2-4 sentence recovery path.
 
@@ -181,7 +181,7 @@ Document baseline and optimized numbers in `docs/prompt-notes.md`.
 ---
 
 ### P7 — Personalized recipe generation prompt (2h)
-**File:** `functions/src/lib/prompts/personalize.js`
+**File:** `functions/src/lib/prompts/personalize.ts`
 
 At the end of a session, Sous generates a personalized recipe based on everything it observed. Export `buildPersonalizePrompt({ originalRecipe, turns, adjustments })` where:
 - `originalRecipe` — the base recipe with steps
@@ -220,4 +220,4 @@ Test against a simulated session with a mix of `on_track` and `adjust` turns. Th
 >
 > Core prompts: (1) vision assessment — given a step's expected visual state and a photo, return a structured verdict (on_track / adjust / done) + advice in strict JSON; (2) rescue — given a problem description and step context, return a specific recovery path; (3) personalized recipe generation — given the original recipe + a session's turn history (verdicts, actual timings, adjustments), rewrite the recipe customized to this cook's kitchen.
 >
-> Start with Task P1: create `functions/src/lib/prompts/assess.js` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API.
+> Start with Task P1: create `functions/src/lib/prompts/assess.ts` that exports `buildAssessPrompt({ expectedVisualState, commonFailures, stepInstruction })` and returns a messages array for the OpenAI chat completions API.

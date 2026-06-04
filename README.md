@@ -159,7 +159,7 @@ Four streams with hard ownership boundaries — no one needs to read another str
 
 Builds the Expo app: recipe list, step viewer, camera capture, assessment card, rescue screen. Works against a mock API response until the server is ready, then swaps one constant (`API_BASE_URL` in `app/src/constants/api.ts`) to point at the real server.
 
-**Never touches:** `server/`, `database/`
+**Never touches:** `functions/src/lib/prompts/`, `functions/src/lib/db.ts`, `database/`, `app/`
 
 ---
 
@@ -196,9 +196,9 @@ Provisions the Cosmos DB account and containers. Writes the DB client wrapper. S
 |-----------------|-------|-------------------|
 | `app/` | Person 1 | ✓ |
 | `functions/src/functions/` | Person 2 | ✓ |
-| `functions/src/lib/openai-client.js` | Person 2 | ✓ |
-| `server/package.json` + `package-lock.json` | Person 2 | ✓ (collect deps from 3 & 4 at start, install once) |
-| `server/.env.example` | Person 2 creates | Person 4 fills local `.env` only — never edits `.env.example` |
+| `functions/src/lib/openai-client.ts` | Person 2 | ✓ |
+| `functions/package.json` + `package-lock.json` | Person 2 | ✓ (collect deps from 3 & 4 at start, install once) |
+| `functions/local.settings.json` | Person 2 creates | Person 4 fills local `.env` only — never edits `.env.example` |
 | `functions/src/lib/prompts/` | Person 3 | ✓ |
 | `functions/src/lib/db.ts` | Person 4 | ✓ |
 | `database/` | Person 4 | ✓ |
@@ -235,7 +235,7 @@ cd server && npm install && func start
 # Runs on http://localhost:7071
 ```
 
-Copy `.env.example` to `.env` in `server/` and fill in:
+Copy `.env.example` to `.env` in `functions/` (as `local.settings.json`) and fill in:
 - `AZURE_OPENAI_ENDPOINT`
 - `AZURE_OPENAI_API_KEY`
 - `AZURE_OPENAI_DEPLOYMENT`
