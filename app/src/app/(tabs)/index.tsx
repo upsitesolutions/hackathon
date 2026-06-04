@@ -1,21 +1,31 @@
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { generateRecipe } from '@/lib/api';
+
+function lightHaptic() {
+  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }
+}
 
 const QUICK_START_PROMPTS = [
   "I'm making salmon",
@@ -64,28 +74,50 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <LinearGradient
+        colors={[theme.background, theme.backgroundElement, theme.background]}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <ThemedView style={styles.header}>
-            <ThemedView style={styles.brandRow}>
-              <Image
-                source={require('@/assets/images/SueChef_clean.png')}
-                contentFit="contain"
-                style={styles.logo}
-              />
-              <ThemedText type="title" style={styles.appTitle}>
-                SueChef
-              </ThemedText>
-            </ThemedView>
+          <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.header}>
+            <View style={styles.brandRow}>
+              <LinearGradient
+                colors={[theme.accent, '#FF6B6B', '#7B68EE']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.logoGlow}>
+                <View style={[styles.logoInner, { backgroundColor: theme.background }]}>
+                  <Image
+                    source={require('@/assets/images/SueChef_clean.png')}
+                    contentFit="contain"
+                    style={styles.logo}
+                  />
+                </View>
+              </LinearGradient>
+              <View style={styles.brandTextCol}>
+                <ThemedText type="title" style={styles.appTitle}>
+                  SueChef
+                </ThemedText>
+                <View style={[styles.eyebrowPill, { backgroundColor: theme.accentSoft }]}>
+                  <ThemedText type="small" style={[styles.eyebrowText, { color: theme.accent }]}>
+                    ✨ Your AI sous-chef
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
             <ThemedText type="default" themeColor="textSecondary" style={styles.subtitle}>
               Tell SueChef what you&apos;re making or paste the recipe you have.
             </ThemedText>
-          </ThemedView>
+          </Animated.View>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
+          <Animated.View
+            entering={FadeInUp.delay(120).duration(500).springify()}
+            style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
             <ThemedText type="small" themeColor="textSecondary">
               What are you making?
             </ThemedText>
@@ -115,30 +147,37 @@ export default function HomeScreen() {
               selection locally, then starts a real API session.
             </ThemedText>
 
-            <ThemedView type="backgroundElement" style={styles.quickStartSection}>
+            <View style={styles.quickStartSection}>
               <ThemedText type="small" themeColor="textSecondary">
                 Quick starts
               </ThemedText>
-              <ThemedView type="backgroundElement" style={styles.quickStartList}>
-                {QUICK_START_PROMPTS.map((prompt) => (
+              <View style={styles.quickStartList}>
+                {QUICK_START_PROMPTS.map((prompt, idx) => (
                   <Pressable
                     key={prompt}
                     accessibilityRole="button"
-                    onPress={() => setSourceText(prompt)}
+                    onPress={() => {
+                      lightHaptic();
+                      setSourceText(prompt);
+                    }}
                     style={({ pressed }) => [
                       styles.quickStartChip,
                       {
                         backgroundColor: pressed
                           ? theme.backgroundSelected
                           : theme.background,
+                        borderColor: theme.backgroundSelected,
+                        transform: [{ scale: pressed ? 0.97 : 1 }],
                       },
                     ]}>
-                    <ThemedText>{prompt}</ThemedText>
+                    <ThemedText style={styles.quickStartChipText}>
+                      {['🐟', '🧄', '🥚'][idx] ?? '✨'} {prompt}
+                    </ThemedText>
                   </Pressable>
                 ))}
-              </ThemedView>
-            </ThemedView>
-          </ThemedView>
+              </View>
+            </View>
+          </Animated.View>
 
           {errorMessage ? (
             <ThemedView
@@ -165,33 +204,49 @@ export default function HomeScreen() {
             </ThemedView>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Start cooking"
-            disabled={!canSubmit}
-            onPress={() => void handleCook(trimmedSourceText)}
-            style={({ pressed }) => [
-              styles.cookButton,
-              {
-                backgroundColor: canSubmit
-                  ? pressed
-                    ? Colors.dark.backgroundSelected
-                    : '#1a1a1a'
-                  : theme.backgroundSelected,
-                opacity: canSubmit ? 1 : 0.6,
-              },
-            ]}>
-            {isLoading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color="#ffffff" />
-                <ThemedText style={styles.cookButtonText}>
-                  Sous is researching your recipe…
-                </ThemedText>
-              </View>
-            ) : (
-              <ThemedText style={styles.cookButtonText}>Let&apos;s Cook</ThemedText>
-            )}
-          </Pressable>
+          <Animated.View entering={FadeInUp.delay(220).duration(500).springify()}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start cooking"
+              disabled={!canSubmit}
+              onPress={() => {
+                if (canSubmit) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+                    () => {},
+                  );
+                }
+                void handleCook(trimmedSourceText);
+              }}
+              style={({ pressed }) => [
+                styles.cookButtonWrap,
+                styles.cookButtonShadow,
+                {
+                  opacity: canSubmit ? 1 : 0.55,
+                  transform: [{ scale: pressed && canSubmit ? 0.98 : 1 }],
+                },
+              ]}>
+              <LinearGradient
+                colors={
+                  canSubmit
+                    ? ['#FF6B6B', '#F59E0B', '#7B68EE']
+                    : [theme.backgroundSelected, theme.backgroundSelected]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cookButton}>
+                {isLoading ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color="#ffffff" />
+                    <ThemedText style={styles.cookButtonText}>
+                      Sous is researching your recipe…
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <ThemedText style={styles.cookButtonText}>Let&apos;s Cook  →</ThemedText>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -225,25 +280,68 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
+  },
+  brandTextCol: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  logoGlow: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6B6B',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  logoInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logo: {
-    width: 60,
-    height: 60,
-    borderRadius: Spacing.three,
+    width: 56,
+    height: 56,
+    borderRadius: Spacing.two,
   },
   appTitle: {
-    letterSpacing: -1,
-    fontSize: 40,
-    lineHeight: 44,
+    letterSpacing: -1.5,
+    fontSize: 44,
+    lineHeight: 48,
+  },
+  eyebrowPill: {
+    alignSelf: 'flex-start',
+    borderRadius: Spacing.five,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+  },
+  eyebrowText: {
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    marginTop: Spacing.one,
+    marginTop: Spacing.two,
+    fontSize: 17,
+    lineHeight: 26,
   },
   card: {
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
+    borderRadius: Spacing.four,
+    padding: Spacing.four,
     gap: Spacing.three,
+  },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   input: {
     minHeight: 180,
@@ -267,8 +365,12 @@ const styles = StyleSheet.create({
   },
   quickStartChip: {
     borderRadius: Spacing.five,
+    borderWidth: 1,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
+  },
+  quickStartChipText: {
+    fontWeight: '600',
   },
   errorCard: {
     borderRadius: Spacing.three,
@@ -282,13 +384,24 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
+  cookButtonWrap: {
+    borderRadius: Spacing.four,
+    overflow: 'hidden',
+  },
+  cookButtonShadow: {
+    shadowColor: '#FF6B6B',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
   cookButton: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.two + 4,
+    borderRadius: Spacing.four,
+    paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 56,
+    minHeight: 64,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -297,8 +410,9 @@ const styles = StyleSheet.create({
   },
   cookButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
+    fontWeight: '700',
+    fontSize: 18,
+    letterSpacing: 0.3,
   },
 });
 

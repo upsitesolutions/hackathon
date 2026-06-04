@@ -1,19 +1,24 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  View,
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   assess,
@@ -156,10 +161,17 @@ export default function RecipeStepScreen() {
               accessibilityRole="button"
               onPress={() => router.replace('/')}
               style={({ pressed }) => [
-                styles.primaryButton,
-                { backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a' },
+                styles.primaryButtonWrap,
+                styles.primaryButtonShadow,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
               ]}>
-              <ThemedText style={styles.primaryButtonText}>Start a new recipe</ThemedText>
+              <LinearGradient
+                colors={['#FF6B6B', '#F59E0B', '#7B68EE']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryButton}>
+                <ThemedText style={styles.primaryButtonText}>Start a new recipe</ThemedText>
+              </LinearGradient>
             </Pressable>
           </ThemedView>
         </SafeAreaView>
@@ -242,8 +254,13 @@ export default function RecipeStepScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <LinearGradient
+        colors={[theme.background, theme.backgroundElement, theme.background]}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.screen}>
+        <ThemedView style={[styles.screen, { backgroundColor: 'transparent' }]}>
           <ScrollView
             ref={scrollViewRef}
             contentContainerStyle={styles.scrollContent}
@@ -255,73 +272,109 @@ export default function RecipeStepScreen() {
               <ThemedText type="small">← Back to recipes</ThemedText>
             </Pressable>
 
-            <ThemedView style={styles.heading}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Step {stepIndex + 1} of {recipe.steps.length}
-              </ThemedText>
+            <Animated.View entering={FadeInDown.duration(450).springify()} style={styles.heading}>
+              <View style={styles.progressRow}>
+                <View
+                  style={[
+                    styles.progressTrack,
+                    { backgroundColor: theme.backgroundElement },
+                  ]}>
+                  <LinearGradient
+                    colors={['#FF6B6B', '#F59E0B', '#7B68EE']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${((stepIndex + 1) / recipe.steps.length) * 100}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.progressLabel}>
+                  Step {stepIndex + 1} / {recipe.steps.length}
+                </ThemedText>
+              </View>
               <ThemedText type="title" style={styles.recipeTitle}>
                 {recipe.title}
               </ThemedText>
               {recipe.description ? (
                 <ThemedText themeColor="textSecondary">{recipe.description}</ThemedText>
               ) : null}
-            </ThemedView>
+            </Animated.View>
 
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Instruction
-              </ThemedText>
+            <Animated.View
+              key={`instr-${activeStep.stepId}`}
+              entering={FadeInUp.duration(400).springify()}
+              style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}>
+                  <ThemedText style={styles.stepBadgeText}>{stepIndex + 1}</ThemedText>
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Instruction
+                </ThemedText>
+              </View>
               <ThemedText type="subtitle" style={styles.instruction}>
                 {activeStep.instruction}
               </ThemedText>
-            </ThemedView>
+            </Animated.View>
 
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Animated.View
+              key={`look-${activeStep.stepId}`}
+              entering={FadeInUp.delay(80).duration(400).springify()}
+              style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="small" themeColor="textSecondary">
-                What to look for
+                👀 What to look for
               </ThemedText>
               <ThemedText style={styles.expectedState}>{activeStep.expectedVisualState}</ThemedText>
-            </ThemedView>
+            </Animated.View>
 
             {activeStep.commonFailures.length > 0 ? (
-              <ThemedView type="backgroundElement" style={styles.card}>
+              <Animated.View
+                key={`fails-${activeStep.stepId}`}
+                entering={FadeInUp.delay(140).duration(400).springify()}
+                style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Watch out for
+                  ⚠️ Watch out for
                 </ThemedText>
-                <ThemedView type="backgroundElement" style={styles.failureList}>
+                <View style={styles.failureList}>
                   {activeStep.commonFailures.map((failure) => (
                     <ThemedText key={failure} themeColor="textSecondary" style={styles.failureText}>
                       • {failure}
                     </ThemedText>
                   ))}
-                </ThemedView>
-              </ThemedView>
+                </View>
+              </Animated.View>
             ) : null}
 
             {selectedImage ? (
-              <ThemedView type="backgroundElement" style={styles.resultCard}>
+              <Animated.View
+                entering={FadeIn.duration(300)}
+                style={[styles.resultCard, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Your photo
+                  📸 Your photo
                 </ThemedText>
                 <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
-              </ThemedView>
+              </Animated.View>
             ) : null}
 
             {isAssessing ? (
-              <ThemedView type="backgroundElement" style={styles.loadingCard}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={[styles.loadingCard, { backgroundColor: theme.backgroundElement }]}>
                 <ActivityIndicator color={theme.text} />
                 <ThemedText themeColor="textSecondary">SueChef is checking your photo…</ThemedText>
-              </ThemedView>
+              </Animated.View>
             ) : null}
 
             {assessError ? (
-              <ThemedView
-                accessibilityRole="alert"
-                type="backgroundElement"
-                style={[styles.errorCard, { borderColor: theme.accent }]}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={[styles.errorCard, { backgroundColor: theme.backgroundElement, borderColor: theme.accent }]}>
                 <ThemedText type="smallBold">Couldn&apos;t check this step</ThemedText>
                 <ThemedText themeColor="textSecondary">{assessError}</ThemedText>
-              </ThemedView>
+              </Animated.View>
             ) : null}
 
             {verdict ? <VerdictCard result={verdict} /> : null}
@@ -368,37 +421,67 @@ export default function RecipeStepScreen() {
               <Pressable
                 accessibilityRole="button"
                 disabled={isSaving || savedAlready}
-                onPress={() => void handleSave()}
+                onPress={() => {
+                  if (!savedAlready) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+                      () => {},
+                    );
+                  }
+                  void handleSave();
+                }}
                 style={({ pressed }) => [
-                  styles.primaryButton,
+                  styles.primaryButtonWrap,
+                  styles.primaryButtonShadow,
                   {
-                    backgroundColor: savedAlready
-                      ? '#2D8C5D'
-                      : pressed
-                        ? Colors.dark.backgroundSelected
-                        : '#1a1a1a',
                     opacity: isSaving ? 0.6 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
                   },
                 ]}>
-                <ThemedText style={styles.primaryButtonText}>
-                  {savedAlready ? '✓ Saved to your recipes' : isSaving ? 'Saving…' : 'Save this recipe'}
-                </ThemedText>
+                <LinearGradient
+                  colors={
+                    savedAlready
+                      ? ['#2D8C5D', '#34A86A']
+                      : ['#FF6B6B', '#F59E0B', '#7B68EE']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.primaryButton}>
+                  <ThemedText style={styles.primaryButtonText}>
+                    {savedAlready
+                      ? '✓ Saved to your recipes'
+                      : isSaving
+                        ? 'Saving…'
+                        : 'Save this recipe'}
+                  </ThemedText>
+                </LinearGradient>
               </Pressable>
             ) : (
               <Pressable
                 accessibilityRole="button"
                 disabled={isAssessing}
-                onPress={handleCheckPress}
+                onPress={() => {
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  }
+                  handleCheckPress();
+                }}
                 style={({ pressed }) => [
-                  styles.primaryButton,
+                  styles.primaryButtonWrap,
+                  styles.primaryButtonShadow,
                   {
-                    backgroundColor: pressed ? Colors.dark.backgroundSelected : '#1a1a1a',
                     opacity: isAssessing ? 0.55 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
                   },
                 ]}>
-                <ThemedText style={styles.primaryButtonText}>
-                  {isAssessing ? 'Checking…' : 'Check it'}
-                </ThemedText>
+                <LinearGradient
+                  colors={['#FF6B6B', '#F59E0B', '#7B68EE']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.primaryButton}>
+                  <ThemedText style={styles.primaryButtonText}>
+                    {isAssessing ? 'Checking…' : '📸 Check it'}
+                  </ThemedText>
+                </LinearGradient>
               </Pressable>
             )}
           </ThemedView>
@@ -496,9 +579,46 @@ const styles = StyleSheet.create({
   centeredBody: { textAlign: 'center', maxWidth: 420 },
   pressed: { opacity: 0.7 },
   backButton: { alignSelf: 'flex-start', paddingVertical: Spacing.one },
-  heading: { gap: Spacing.one },
-  recipeTitle: { fontSize: 36, lineHeight: 42 },
+  heading: { gap: Spacing.two },
+  progressRow: { gap: Spacing.one },
+  progressTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressLabel: { fontWeight: '600' },
+  recipeTitle: { fontSize: 36, lineHeight: 42, letterSpacing: -0.8 },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  stepBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBadgeText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 14,
+    lineHeight: 16,
+  },
   instruction: { fontSize: 24, lineHeight: 32 },
   expectedState: { fontSize: 18, lineHeight: 28, fontWeight: '600' },
   failureList: { gap: Spacing.one },
@@ -545,11 +665,24 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two + 4,
     alignItems: 'center',
   },
+  primaryButtonWrap: {
+    borderRadius: Spacing.three,
+    overflow: 'hidden',
+  },
+  primaryButtonShadow: {
+    shadowColor: '#FF6B6B',
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
   primaryButton: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.two + 4,
+    borderRadius: Spacing.three,
+    paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
+    minHeight: 56,
+    justifyContent: 'center',
   },
-  primaryButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 16 },
+  primaryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 17, letterSpacing: 0.3 },
 });
