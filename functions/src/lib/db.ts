@@ -3,6 +3,7 @@ import { CosmosClient, Container, SqlQuerySpec } from "@azure/cosmos";
 const DEFAULT_DB_NAME = process.env.COSMOS_DB_NAME ?? "sous-db";
 const RECIPES_CONTAINER_NAME = process.env.COSMOS_RECIPES_CONTAINER ?? "recipes";
 const SESSIONS_CONTAINER_NAME = process.env.COSMOS_SESSIONS_CONTAINER ?? "sessions";
+const VISITORS_CONTAINER_NAME = process.env.COSMOS_VISITORS_CONTAINER ?? "visitors";
 
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_RETRIES = 5;
@@ -54,6 +55,19 @@ export type PersonalizedRecipe = {
   notes: string;
 };
 
+// ----- Visitors -----
+
+export type Visitor = {
+  /** Cosmos document id (uuid) */
+  id: string;
+  /** Caller-supplied name, or "anon" */
+  name: string;
+  /** ISO-8601 timestamp of when this visit was recorded */
+  visitedAt: string;
+};
+
+// ----- Sessions -----
+
 export type Session = {
   id: string;
   sessionId: string;
@@ -89,7 +103,9 @@ export async function initializeDatabaseIfNeeded(): Promise<void> {
   const client = getCosmosClient();
 
   await withRetry(async () => {
+    console.log("Ensuring Cosmos DB database and containers exist...");
     await client.databases.createIfNotExists({ id: DEFAULT_DB_NAME });
+    console.log(`Database "${DEFAULT_DB_NAME}" is ready.`);
 
     const database = client.database(DEFAULT_DB_NAME);
     await database.containers.createIfNotExists({
@@ -100,6 +116,11 @@ export async function initializeDatabaseIfNeeded(): Promise<void> {
     await database.containers.createIfNotExists({
       id: SESSIONS_CONTAINER_NAME,
       partitionKey: { paths: ["/sessionId"] }
+    });
+
+    await database.containers.createIfNotExists({
+      id: VISITORS_CONTAINER_NAME,
+      partitionKey: { paths: ["/id"] }
     });
   }, "initializeDatabaseIfNeeded");
 }
@@ -324,4 +345,31 @@ export async function getSession(sessionId: string): Promise<Session> {
 
     return resource;
   }, "getSession");
+}
+
+// ----- Visitor helpers -----
+
+export async function addVisitor(name: string): Promise<Visitor> {
+  const container = getContainer(VISITORS_CONTAINER_NAME);
+  const visitor: Visitor = {
+    id: crypto.randomUUID(),
+    name,
+    visitedAt: new Date().toISOString()
+  };
+
+  return withRetry(async () => {
+    await container.items.create<Visitor>(visitor);
+    return visitor;
+  }, "addVisitor");
+}
+
+export async function getAllVisitors(): Promise<Visitor[]> {
+  const container = getContainer(VISITORS_CONTAINER_NAME);
+
+  return withRetry(async () => {
+    const { resources } = await container.items
+      .query<Visitor>({ query: "SELECT c.id, c.name, c.visitedAt FROM c ORDER BY c.visitedAt DESC" })
+      .fetchAll();
+    return resources;
+  }, "getAllVisitors");
 }
