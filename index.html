@@ -162,15 +162,33 @@
     .row-dash {
       font-family: var(--sans);
       color: var(--gold);
-      font-size: 16px;
-      line-height: 26px;
+      font-size: 22px;
+      line-height: 34px;
       flex-shrink: 0;
     }
     .row-text {
       font-family: var(--sans);
-      font-size: 18px;
-      line-height: 28px;
+      font-size: 24px;
+      line-height: 34px;
       color: rgba(240,228,208,0.82);
+    }
+    .sub-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 22px;
+      margin: 6px 0 4px 34px;
+    }
+    .sub-item {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 22px;
+      color: rgba(201,168,76,0.85);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .sub-item::before {
+      content: "·  ";
+      color: rgba(201,168,76,0.5);
     }
 
     /* Big rows (Azure slide) */
@@ -181,23 +199,23 @@
     }
     .big-row-label {
       font-family: var(--serif);
-      font-size: 24px;
+      font-size: 30px;
       font-weight: 700;
       color: var(--cream);
       letter-spacing: -0.4px;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
     }
     .big-row-detail {
       font-family: var(--sans);
-      font-size: 15px;
-      line-height: 24px;
+      font-size: 20px;
+      line-height: 30px;
       color: var(--cream-dim);
     }
 
     .quote {
       font-family: var(--serif);
-      font-size: 16px;
-      line-height: 27px;
+      font-size: 20px;
+      line-height: 32px;
       color: rgba(240,228,208,0.35);
       font-style: italic;
     }
@@ -262,13 +280,21 @@
       <div class="headline">GitHub<br>Copilot.</div>
       <div class="rule"></div>
       <div class="list">
-        <div class="row"><span class="row-dash">—</span><span class="row-text">4 custom Copilot agents — one per team stream</span></div>
+        <div class="row"><span class="row-dash">—</span><span class="row-text">4 teammates, each driving a swarm of custom Copilot agents</span></div>
+        <div class="sub-list">
+          <span class="sub-item">Database</span>
+          <span class="sub-item">UI dev</span>
+          <span class="sub-item">Functions</span>
+          <span class="sub-item">Planning / coordinating</span>
+        </div>
         <div class="row"><span class="row-dash">—</span><span class="row-text">Azure Functions v4 scaffolded in minutes</span></div>
         <div class="row"><span class="row-dash">—</span><span class="row-text">Cosmos DB client with retry logic, generated whole</span></div>
         <div class="row"><span class="row-dash">—</span><span class="row-text">React Native camera + routing boilerplate, zero googling</span></div>
+        <div class="row"><span class="row-dash">—</span><span class="row-text">Google Gemini vision for multi-model doneness analysis</span></div>
+        <div class="row"><span class="row-dash">—</span><span class="row-text">Azure Blob Storage for photo uploads + history</span></div>
       </div>
       <div class="rule"></div>
-      <div class="quote">"The Azure Functions backend and Cosmos DB layer were scaffolded with Copilot. The vision models run on Azure OpenAI. The whole stack is Microsoft."</div>
+      <div class="quote">"Azure Functions, Cosmos DB, and Blob Storage were scaffolded with Copilot. Vision runs on Azure OpenAI and Google Gemini side-by-side. Microsoft stack, multi-model brain."</div>
     </div>
   </div>
 

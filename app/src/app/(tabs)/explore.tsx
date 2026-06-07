@@ -78,17 +78,37 @@ export default function SavedRecipesTabScreen() {
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Saved Recipes
-        </ThemedText>
+      <View style={styles.header}>
+        <View style={[styles.eyebrowPill, { backgroundColor: theme.accentSoft }]}>
+          <ThemedText type="small" style={[styles.eyebrowText, { color: theme.accent }]}>
+            ★ Saved Recipes
+          </ThemedText>
+        </View>
         <ThemedText type="subtitle" style={styles.title}>
           Your cooking wins
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-          Tap any saved recipe to revisit the steps.
+          A cookbook of every dish you&apos;ve nailed. Tap one to revisit the steps.
         </ThemedText>
-      </ThemedView>
+        {sessions.length > 0 && !isLoading ? (
+          <View style={styles.statsRow}>
+            <View style={[styles.statChip, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="smallBold">{sessions.length}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {sessions.length === 1 ? 'recipe' : 'recipes'}
+              </ThemedText>
+            </View>
+            <View style={[styles.statChip, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="smallBold">
+                {sessions.reduce((acc, s) => acc + s.stepCount, 0)}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                steps cooked
+              </ThemedText>
+            </View>
+          </View>
+        ) : null}
+      </View>
 
       {isLoading ? (
         <ThemedView style={styles.centeredCard}>
@@ -111,45 +131,66 @@ export default function SavedRecipesTabScreen() {
         </ThemedView>
       ) : sessions.length === 0 ? (
         <ThemedView type="backgroundElement" style={styles.emptyCard}>
-          <ThemedText type="smallBold">Nothing saved yet</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Finish a cooking session and tap “Save this recipe” to add it here.
+          <ThemedText type="smallBold" style={styles.emptyTitle}>
+            Your cookbook is empty
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.emptyBody}>
+            Finish a cooking session and tap “Save this recipe” — it&apos;ll land here as your
+            next cooking win.
           </ThemedText>
         </ThemedView>
       ) : (
-        <ThemedView style={styles.section}>
+        <View style={styles.section}>
           {sessions.map((session) => (
             <Pressable
               key={session.sessionId}
               accessibilityRole="button"
               onPress={() => openSession(session)}
-              style={({ pressed }) => [styles.cardPressable, pressed && { opacity: 0.82 }]}>
+              style={({ pressed }) => [
+                styles.cardPressable,
+                pressed && styles.cardPressed,
+              ]}>
               <ThemedView type="backgroundElement" style={styles.recipeCard}>
-                <View style={styles.recipeTopRow}>
-                  <View style={styles.recipeMeta}>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {session.stepCount} steps · {session.turnCount} checks
-                    </ThemedText>
-                    <ThemedText type="default" style={styles.recipeTitle}>
-                      {session.title}
-                    </ThemedText>
+                <View style={[styles.accentStripe, { backgroundColor: theme.accent }]} />
+                <View style={styles.recipeMeta}>
+                  <ThemedText type="default" style={styles.recipeTitle} numberOfLines={2}>
+                    {session.title}
+                  </ThemedText>
+                  <View style={styles.chipRow}>
+                    <View style={[styles.chip, { backgroundColor: theme.background }]}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {session.stepCount} {session.stepCount === 1 ? 'step' : 'steps'}
+                      </ThemedText>
+                    </View>
+                    <View style={[styles.chip, { backgroundColor: theme.background }]}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {session.turnCount} {session.turnCount === 1 ? 'check' : 'checks'}
+                      </ThemedText>
+                    </View>
                   </View>
                 </View>
 
-                <ThemedText themeColor="textSecondary" style={styles.recipeSummary}>
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.recipeSummary}
+                  numberOfLines={3}>
                   &ldquo;{session.prompt}&rdquo;
                 </ThemedText>
+
+                <View style={[styles.divider, { backgroundColor: theme.background }]} />
 
                 <View style={styles.cardFooter}>
                   <ThemedText type="small" themeColor="textSecondary">
                     Saved {formatSavedAt(session.savedAt)}
                   </ThemedText>
-                  <ThemedText type="smallBold">Open →</ThemedText>
+                  <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                    Open →
+                  </ThemedText>
                 </View>
               </ThemedView>
             </Pressable>
           ))}
-        </ThemedView>
+        </View>
       )}
     </ScrollView>
   );
@@ -163,16 +204,39 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.four,
     gap: Spacing.four,
   },
-  header: { gap: Spacing.one },
-  title: { fontSize: 36, lineHeight: 40 },
+  header: { gap: Spacing.two },
+  eyebrowPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: 999,
+  },
+  eyebrowText: { fontWeight: '700', letterSpacing: 0.5 },
+  title: { fontSize: 40, lineHeight: 44, fontWeight: '800' },
   subtitle: { lineHeight: 24, maxWidth: 560 },
-  section: { gap: Spacing.two },
+  statsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.one },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
+  },
+  section: { gap: Spacing.three },
   centeredCard: {
     alignItems: 'center',
     gap: Spacing.two,
     padding: Spacing.four,
   },
-  emptyCard: { gap: Spacing.one, padding: Spacing.three, borderRadius: 24 },
+  emptyCard: {
+    gap: Spacing.one,
+    padding: Spacing.four,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: { fontSize: 16 },
+  emptyBody: { textAlign: 'center', lineHeight: 22, maxWidth: 320 },
   errorCard: { gap: Spacing.two, padding: Spacing.three, borderRadius: 24 },
   retryButton: {
     alignSelf: 'flex-start',
@@ -180,17 +244,34 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
-  cardPressable: { borderRadius: 24 },
+  cardPressable: { borderRadius: 24, overflow: 'hidden' },
+  cardPressed: { opacity: 0.85 },
   recipeCard: {
     borderRadius: 24,
     padding: Spacing.three,
-    gap: Spacing.two,
+    paddingLeft: Spacing.three + Spacing.one,
+    gap: Spacing.three,
     boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)',
+    overflow: 'hidden',
+    position: 'relative',
   },
-  recipeTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two },
-  recipeMeta: { flex: 1, gap: Spacing.one },
-  recipeTitle: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  recipeSummary: { lineHeight: 24, fontStyle: 'italic' },
+  accentStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  recipeMeta: { gap: Spacing.one },
+  recipeTitle: { fontSize: 20, lineHeight: 26, fontWeight: '700' },
+  chipRow: { flexDirection: 'row', gap: Spacing.one, flexWrap: 'wrap', marginTop: Spacing.half },
+  chip: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: 999,
+  },
+  recipeSummary: { lineHeight: 22, fontStyle: 'italic' },
+  divider: { height: 1, opacity: 0.6 },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
