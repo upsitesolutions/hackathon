@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -41,6 +41,16 @@ export default function SavedRecipesTabScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+
+  const filteredSessions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s) => {
+      const haystack = `${s.title ?? ''} ${s.prompt ?? ''}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [sessions, query]);
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +88,20 @@ export default function SavedRecipesTabScreen() {
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}>
+      <Stack.Screen
+        options={{
+          title: 'Recipes',
+          headerSearchBarOptions: {
+            placeholder: 'Search saved recipes',
+            placement: 'integrated',
+            allowToolbarIntegration: true,
+            hideWhenScrolling: false,
+            obscureBackground: false,
+            onChangeText: (e) => setQuery(e.nativeEvent.text),
+            onCancelButtonPress: () => setQuery(''),
+          },
+        }}
+      />
       <View style={styles.header}>
         <View style={[styles.eyebrowPill, { backgroundColor: theme.accentSoft }]}>
           <ThemedText type="small" style={[styles.eyebrowText, { color: theme.accent }]}>
@@ -141,7 +165,18 @@ export default function SavedRecipesTabScreen() {
         </ThemedView>
       ) : (
         <View style={styles.section}>
-          {sessions.map((session) => (
+          {filteredSessions.length === 0 ? (
+            <ThemedView type="backgroundElement" style={styles.emptyCard}>
+              <ThemedText type="smallBold" style={styles.emptyTitle}>
+                No matches
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.emptyBody}>
+                Nothing matched “{query.trim()}”. Try a different word from the title or
+                prompt.
+              </ThemedText>
+            </ThemedView>
+          ) : null}
+          {filteredSessions.map((session) => (
             <Pressable
               key={session.sessionId}
               accessibilityRole="button"
