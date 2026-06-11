@@ -14,8 +14,16 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="recipe/[id]" />
+        <Stack.Screen name="(tabs)" options={{ title: 'Recipes' }} />
+        <Stack.Screen
+          name="recipe/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: '',
+            headerTransparent: true,
+            headerBackTitle: 'Recipes',
+          }}
+        />
         <Stack.Screen name="recipe-result" />
       </Stack>
       <AnimatedSplashOverlay />

@@ -18,6 +18,14 @@ export default function AppTabs() {
           md={{ default: 'menu_book', selected: 'menu_book' }}
         />
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="search" role="search">
+        <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }}
+          md={{ default: 'search', selected: 'search' }}
+        />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

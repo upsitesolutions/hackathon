@@ -6,7 +6,7 @@ let cachedClient: GoogleGenerativeAI | undefined;
 
 function getClient(): GoogleGenerativeAI {
   if (cachedClient) return cachedClient;
-  const key = "AQ.Ab8RN6KS59AQ-mQUMWv1qnIUKiJklAWqmUcbC3X-eRZk1sJmDg";
+  const key = "";
   if (!key) throw new Error("GEMINI_API_KEY is not set.");
   cachedClient = new GoogleGenerativeAI(key);
   return cachedClient;

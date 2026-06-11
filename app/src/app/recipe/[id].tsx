@@ -13,7 +13,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, SlideInLeft, SlideInRight } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -112,6 +112,8 @@ export default function RecipeStepScreen() {
   const isFirstStep = stepIndex === 0;
   const isLastStep = recipe ? stepIndex === recipe.steps.length - 1 : false;
 
+  const [navDirection, setNavDirection] = useState<'next' | 'prev'>('next');
+
   const submitForAssessment = useCallback(
     async (image: SelectedImage) => {
       if (!sessionId || !recipe || !activeStep) return;
@@ -182,10 +184,8 @@ export default function RecipeStepScreen() {
   const navigateToStep = (nextIndex: number) => {
     const nextStep = recipe.steps[nextIndex];
     if (!nextStep) return;
-    router.replace({
-      pathname: '/recipe/[id]',
-      params: { id: recipe.id, sessionId, stepId: nextStep.stepId },
-    });
+    setNavDirection(nextIndex > stepIndex ? 'next' : 'prev');
+    router.setParams({ stepId: nextStep.stepId });
   };
 
   const handlePickImage = async (source: 'camera' | 'library') => {
@@ -259,19 +259,13 @@ export default function RecipeStepScreen() {
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <ThemedView style={[styles.screen, { backgroundColor: 'transparent' }]}>
           <ScrollView
             ref={scrollViewRef}
             contentContainerStyle={styles.scrollContent}
+            contentInsetAdjustmentBehavior="automatic"
             showsVerticalScrollIndicator={false}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.replace('/')}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-              <ThemedText type="small">← Back to recipes</ThemedText>
-            </Pressable>
-
             <Animated.View entering={FadeInDown.duration(450).springify()} style={styles.heading}>
               <View style={styles.progressRow}>
                 <View
@@ -305,7 +299,7 @@ export default function RecipeStepScreen() {
 
             <Animated.View
               key={`instr-${activeStep.stepId}`}
-              entering={FadeInUp.duration(400).springify()}
+              entering={(navDirection === 'next' ? SlideInRight : SlideInLeft).duration(320)}
               style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
               <View style={styles.cardHeader}>
                 <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}>
@@ -322,7 +316,9 @@ export default function RecipeStepScreen() {
 
             <Animated.View
               key={`look-${activeStep.stepId}`}
-              entering={FadeInUp.delay(80).duration(400).springify()}
+              entering={(navDirection === 'next' ? SlideInRight : SlideInLeft)
+                .delay(60)
+                .duration(320)}
               style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="small" themeColor="textSecondary">
                 👀 What to look for
@@ -333,7 +329,9 @@ export default function RecipeStepScreen() {
             {activeStep.commonFailures.length > 0 ? (
               <Animated.View
                 key={`fails-${activeStep.stepId}`}
-                entering={FadeInUp.delay(140).duration(400).springify()}
+                entering={(navDirection === 'next' ? SlideInRight : SlideInLeft)
+                  .delay(120)
+                  .duration(320)}
                 style={[styles.card, styles.cardShadow, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="small" themeColor="textSecondary">
                   ⚠️ Watch out for

@@ -20,7 +20,12 @@ You must respond with strict JSON only — no prose, no markdown fences — matc
 }
 
 Rules:
-- Produce 4 to 8 steps. No more.
+- Use as many steps as the recipe genuinely needs — do not artificially cap or pad the count.
+  Simple dishes may be 3-5 steps; complex multi-component dishes may be 10-20+ steps.
+  Each step should be ONE discrete cooking action a cook would naturally pause on (mise en place,
+  preheating, individual prep tasks, each cooking phase, resting, plating, etc.). Split combined
+  actions ("dice onions and mince garlic and toast spices") into separate steps when they happen
+  at different times or need different visual checks.
 - Every step MUST have a vivid "expectedVisualState" focused on color, texture, size, or bubbling —
   things a camera can see. Avoid temperature or taste cues there.
 - Keep instructions concrete and short (1-3 sentences).
